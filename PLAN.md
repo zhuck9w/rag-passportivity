@@ -1417,7 +1417,7 @@ git commit -m "feat: query rewrite with multi-country filter and similarity thre
 - Consumes: фрагменты из `retrieval.retrieve` (dict с `content`, `notion_url`, `program`, `country`, `status`)
 - Produces: `answer(question: str, fragments: list[dict], history: list[dict]) -> str` — готовый текст для Slack (с источниками); чистые `build_user_message(fragments, question) -> str`, `_merge_history(history) -> list[dict]`.
 
-- [ ] **Step 1: Падающие тесты `tests/test_answer.py`**
+- [x] **Step 1: Падающие тесты `tests/test_answer.py`**
 
 ```python
 from answer import build_user_message, _merge_history
@@ -1444,12 +1444,12 @@ def test_history_cannot_start_with_assistant():
     assert merged == []
 ```
 
-- [ ] **Step 2: Убедиться, что падают**
+- [x] **Step 2: Убедиться, что падают**
 
 Run: `pytest tests/test_answer.py -q`
 Expected: FAIL (нет модуля `answer`).
 
-- [ ] **Step 3: `prompts/system.txt`**
+- [x] **Step 3: `prompts/system.txt`**
 
 ```text
 Ты — внутренний ассистент компании Passportivity по базе знаний о программах
@@ -1475,7 +1475,7 @@ Expected: FAIL (нет модуля `answer`).
    программам компании, и не пытайся помочь с посторонним.
 ```
 
-- [ ] **Step 4: Реализация `answer.py`**
+- [x] **Step 4: Реализация `answer.py`**
 
 ```python
 """Сборка промпта и вызов Claude. Ответ строго по фрагментам базы."""
@@ -1536,17 +1536,17 @@ def answer(question: str, fragments: list[dict], history: list[dict]) -> str:
     return resp.content[0].text + _sources_footer(fragments)
 ```
 
-- [ ] **Step 5: Тесты зелёные**
+- [x] **Step 5: Тесты зелёные**
 
 Run: `pytest -q`
 Expected: все тесты проекта `passed`.
 
-- [ ] **Step 6: Живой смоук полного ответа**
+- [x] **Step 6: Живой смоук полного ответа**
 
 Run: `python scripts/ask.py "какой минимальный порог инвестиций на Мальте?" --answer`
 Expected: связный ответ с цифрами из базы и блоком «Источники: • <ссылка|Мальта — …>». Задать также вопрос не из базы («какая погода в Лиссабоне?») — фрагментов не будет вовсе (порог похожести) или ответ будет «в базе знаний этого нет», без выдумок.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add answer.py prompts/system.txt tests/test_answer.py
