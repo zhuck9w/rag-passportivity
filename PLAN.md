@@ -220,11 +220,11 @@ git commit -m "chore: project skeleton, config, dependencies"
 **Interfaces:**
 - Produces: таблицы `chunks`, `sync_state`; SQL-функции `match_chunks(query_embedding vector(1024), match_count int, filter_country text)` → строки с полями `id, page_id, country, program, section, status, notion_url, page_edited_at, content, similarity` и `list_countries()` → список стран.
 
-- [ ] **Step 1: Создать проект** — supabase.com → New project (в существующем аккаунте): имя `kb-assistant`, регион EU (Frankfurt), сгенерировать пароль БД и сохранить его в менеджер паролей. Бесплатный тариф допускает два активных проекта — второй как раз наш.
+- [x] **Step 1: Создать проект** — supabase.com → New project (в существующем аккаунте): имя `kb-assistant`, регион EU (Frankfurt), сгенерировать пароль БД и сохранить его в менеджер паролей. Бесплатный тариф допускает два активных проекта — второй как раз наш.
 
-- [ ] **Step 2: Ключи в `.env`** — Project Settings → API: скопировать `Project URL` → `SUPABASE_URL`; секретный ключ (`sb_secret_...`; в старом интерфейсе — `service_role`) → `SUPABASE_SECRET_KEY`.
+- [x] **Step 2: Ключи в `.env`** — Project Settings → API: скопировать `Project URL` → `SUPABASE_URL`; секретный ключ (`sb_secret_...`; в старом интерфейсе — `service_role`) → `SUPABASE_SECRET_KEY`.
 
-- [ ] **Step 3: `sql/schema.sql`**
+- [x] **Step 3: `sql/schema.sql`**
 
 ```sql
 create extension if not exists vector;
@@ -297,10 +297,10 @@ language sql stable as $$
 $$;
 ```
 
-- [ ] **Step 4: Применить схему** — Supabase Dashboard → SQL Editor → вставить содержимое `sql/schema.sql` → Run.
+- [x] **Step 4: Применить схему** — Supabase Dashboard → SQL Editor → вставить содержимое `sql/schema.sql` → Run.
 Expected: `Success. No rows returned`.
 
-- [ ] **Step 5: Проверка** — там же выполнить:
+- [x] **Step 5: Проверка** — там же выполнить:
 
 ```sql
 select count(*) from chunks;
@@ -308,7 +308,7 @@ select * from list_countries();
 ```
 Expected: `0` и пустой список (таблица и функции есть).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add sql/schema.sql
