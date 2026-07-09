@@ -24,10 +24,13 @@ CHUNK_OVERLAP_CHARS = 200   # перехлёст между чанками
 TOP_K = 8                   # сколько фрагментов отдаём Claude
 MIN_SIMILARITY = 0.25       # порог отсечения нерелевантного; калибруется в Task 7 Step 7
 
-# Имена свойств в базах Notion — уточняются в Task 2 (discover.py):
-COUNTRY_PROP = "Страна"
-STATUS_PROP = "Статус"
-OWNER_PROP = ""             # "" = не использовать
+# Имена свойств в базах Notion — подтверждены discover.py (Task 2, 2026-07-09).
+# Во всех 4 базах ([DC] Caribbean/European/Other/African) имена одинаковые:
+# Country — select в 3 базах, multi_select в Caribbean (наш _prop_text умеет оба);
+# дубликаты 'Country 1'/'Status 1' в отдельных базах игнорируем.
+COUNTRY_PROP = "Country"
+STATUS_PROP = "Status"      # тип status, значения вида "Actual"
+OWNER_PROP = "Assign"       # тип people; имена приходят (capability есть), "" = не использовать
 
 
 def require(*names: str) -> None:

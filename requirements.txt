@@ -1,6 +1,7 @@
-# notion-client 3.x перешёл на API 2025-09-03 (data sources) и убрал
-# databases.query — не поднимать мажорную версию без переписывания notion_reader.py
-notion-client>=2.3,<3
+# notion-client 2.6.0+ перешёл на API 2025-09-03 (data sources) и убрал
+# databases.query (проверено 2026-07-09: 2.5.0 — последняя версия с ним) —
+# не поднимать версию без переписывания notion_reader.py и discover.py
+notion-client>=2.3,<2.6
 slack-bolt>=1.20
 supabase>=2.6
 anthropic>=0.40

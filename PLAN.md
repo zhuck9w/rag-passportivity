@@ -327,7 +327,7 @@ git commit -m "feat: supabase schema with pgvector, match_chunks and list_countr
 - Consumes: `config.NOTION_TOKEN`, `config.NOTION_KB_PAGE_ID`
 - Produces: подтверждённые имена свойств карточек в `config.py`. Ничего программного — скрипт разовый.
 
-- [ ] **Step 1: `discover.py`**
+- [x] **Step 1: `discover.py`**
 
 ```python
 """Разовая разведка: какие базы лежат на странице и какие у карточек свойства.
@@ -372,17 +372,17 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Запустить**
+- [x] **Step 2: Запустить**
 
 Run: `python discover.py`
 Expected: список баз («[DC] Caribbean countries and islands», «[DC] European countries», …) и для каждой — имена свойств с типами. Если скрипт падает с `object_not_found` — интеграция не подключена к странице: вернуться к IT-директору (меню «⋯» страницы → Connections).
 
-- [ ] **Step 3: Зафиксировать имена свойств в `config.py`** — по выводу: свойство со страной (тип `select` или `status`) → `COUNTRY_PROP`; статус актуальности (`Actual`/`Need update`, тип `status` или `select`) → `STATUS_PROP`; ответственные (тип `people`) → `OWNER_PROP` (или оставить `""`).
+- [x] **Step 3: Зафиксировать имена свойств в `config.py`** — по выводу: свойство со страной (тип `select` или `status`) → `COUNTRY_PROP`; статус актуальности (`Actual`/`Need update`, тип `status` или `select`) → `STATUS_PROP`; ответственные (тип `people`) → `OWNER_PROP` (или оставить `""`).
 Два предупреждения:
   - Если у интеграции только capability «Read content», свойство `people` вернёт пользователей без имён (только id) и `owners` будет всегда пустым. Либо оставить `OWNER_PROP = ""`, либо попросить IT включить у интеграции capability «Read user information (without email)» — это по-прежнему не даёт прав на запись.
   - Если свойства-страны нет вообще (страна видна только как колонка доски) — записать `COUNTRY_PROP = ""` и сообщить в чат: группировка доски недоступна через API, обсудим запасной вариант (например, страна из названия базы).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add discover.py config.py
