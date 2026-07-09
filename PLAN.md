@@ -1564,7 +1564,7 @@ git commit -m "feat: claude answering with system rules and sources footer"
 - Consumes: `retrieval.retrieve`, `answer.answer`, `config.SLACKBOT_OAUTH`, `config.SLACKBOT_APPLEVEL`
 - Produces: процесс `python bot.py`: отвечает на упоминания в каналах и сообщения в личке, всегда в тред; контекст диалога — история треда, а в личке без треда — последние сообщения переписки.
 
-- [ ] **Step 1: `bot.py`**
+- [x] **Step 1: `bot.py`**
 
 ```python
 """Slack-бот (Socket Mode). Слушает упоминания и личку, отвечает в тред."""
@@ -1711,12 +1711,12 @@ if __name__ == "__main__":
     SocketModeHandler(app, config.SLACKBOT_APPLEVEL).start()
 ```
 
-- [ ] **Step 2: Запустить локально**
+- [x] **Step 2: Запустить локально**
 
 Run: `python bot.py`
 Expected: строка про подключение, процесс не завершается, ошибок нет.
 
-- [ ] **Step 3: Проверка в Slack** (бот работает у тебя на машине):
+- [x] **Step 3: Проверка в Slack** (бот работает у тебя на машине): _(автономный смоук пройден: Socket Mode подключился, Bolt app is running; живую проверку пунктов 1–6 в Slack делает Антон вручную)_
 1. Личка боту: «какой минимальный порог инвестиций на Мальте?» → ответ в треде с цифрами и источниками.
 2. Follow-up в личке **обычным сообщением, не в тред**: «а в Португалии?» → контекст понят (история переписки).
 3. Follow-up в том же треде → контекст понят.
@@ -1724,7 +1724,7 @@ Expected: строка про подключение, процесс не зав
 5. Вопрос не из базы → честное «не нашёл».
 6. В логах — строки `q=... -> query=... country=... fragments=N`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add bot.py
