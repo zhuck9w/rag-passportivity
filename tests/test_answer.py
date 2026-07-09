@@ -1,4 +1,19 @@
-from answer import build_user_message, _merge_history
+from answer import build_user_message, _merge_history, _to_mrkdwn
+
+
+def test_to_mrkdwn_slack_formatting():
+    src = ("## Получение ПМЖ\n"
+           "**Основное требование:** 5 лет.\n"
+           "### Сроки\n"
+           "- пункт один\n"
+           "Подробнее: [закон](https://example.com/law)")
+    out = _to_mrkdwn(src)
+    assert "**" not in out
+    assert "#" not in out
+    assert "*Получение ПМЖ*" in out
+    assert "*Основное требование:* 5 лет." in out
+    assert "• пункт один" in out
+    assert "<https://example.com/law|закон>" in out
 
 
 def test_user_message_contains_fragments_and_question():

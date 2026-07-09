@@ -1,4 +1,5 @@
 """Сборка промпта и вызов Claude. Ответ строго по фрагментам базы."""
+import re
 from pathlib import Path
 
 import anthropic
@@ -37,8 +38,21 @@ def _merge_history(history: list[dict]) -> list[dict]:
     return merged
 
 
+def _to_mrkdwn(text: str) -> str:
+    """Slack не понимает обычный markdown (**жирный**, заголовки #, [ссылки]()),
+    а модель всё равно иногда так пишет. Конвертируем детерминированно,
+    не полагаясь на дисциплину модели."""
+    text = re.sub(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)", r"<\2|\1>", text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
+    text = re.sub(r"^#{1,6}\s*(.+?)\s*$",
+                  lambda m: "*" + m.group(1).strip().strip("*") + "*",
+                  text, flags=re.M)
+    text = re.sub(r"^(\s*)[-*]\s+", r"\1• ", text, flags=re.M)
+    return text
+
+
 def _sources_footer(fragments: list[dict]) -> str:
-    seen = sorted({(f["country"], f["program"], f["notion_url"])
+    seen = sorted({(f["country"].strip(), f["program"].strip(), f["notion_url"])
                    for f in fragments if f.get("notion_url")})
     if not seen:
         return ""
@@ -53,4 +67,4 @@ def answer(question: str, fragments: list[dict], history: list[dict]) -> str:
     resp = _anthropic().messages.create(
         model=config.ANSWER_MODEL, max_tokens=1200,
         system=_SYSTEM, messages=msgs)
-    return resp.content[0].text + _sources_footer(fragments)
+    return _to_mrkdwn(resp.content[0].text) + _sources_footer(fragments)
