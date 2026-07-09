@@ -902,7 +902,7 @@ git commit -m "feat: chunker with passports, section split, table-aware overlap"
 - Consumes: `config`, `chunker.Chunk`, `notion_reader.Card`, функции `match_chunks` и `list_countries` из Task 1
 - Produces: `embed_texts(texts: list[str]) -> list[list[float]]`; `embed_query(text: str) -> list[float]`; `db.get_sync_state() -> dict[str, str]`; `db.replace_page_chunks(card, chunks, embeddings) -> None`; `db.delete_pages(page_ids: list[str]) -> None`; `db.list_countries() -> list[str]`; `db.search(embedding, country: str | None = None, k: int = config.TOP_K) -> list[dict]` (dict с ключами из `match_chunks`, включая `similarity`).
 
-- [ ] **Step 1: `embedder.py`**
+- [x] **Step 1: `embedder.py`**
 
 ```python
 """Тексты → векторы (Voyage AI voyage-3.5, 1024 числа). input_type различает
@@ -939,7 +939,7 @@ def embed_query(text: str) -> list[float]:
     return _embed([text], "query")[0]
 ```
 
-- [ ] **Step 2: `db.py`**
+- [x] **Step 2: `db.py`**
 
 ```python
 """Вся работа с Supabase: хранение чанков, состояние синка, поиск."""
@@ -1012,7 +1012,7 @@ def search(embedding, country: str | None = None, k: int = config.TOP_K) -> list
     return resp.data
 ```
 
-- [ ] **Step 3: Смоук-скрипт `scripts/check_db.py`**
+- [x] **Step 3: Смоук-скрипт `scripts/check_db.py`**
 
 ```python
 """Проверка связки embedder + db: вставить тестовый чанк, найти, удалить."""
@@ -1048,7 +1048,7 @@ assert db.search(vec, country="Тест", k=1) == []
 print("удалено. всё работает")
 ```
 
-- [ ] **Step 4: Запустить смоук**
+- [x] **Step 4: Запустить смоук**
 
 Run: `python scripts/check_db.py`
 Expected:
@@ -1059,11 +1059,11 @@ Expected:
 ```
 (similarity может быть 0.999… — это нормально.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add embedder.py db.py scripts/check_db.py
-git commit -m "feat: openai embeddings and supabase persistence layer"
+git commit -m "feat: voyage embeddings and supabase persistence layer"
 ```
 
 ---

@@ -1,0 +1,68 @@
+"""Вся работа с Supabase: хранение чанков, состояние синка, поиск."""
+from supabase import create_client
+
+import config
+
+_sb = None
+
+
+def sb():
+    global _sb
+    if _sb is None:
+        config.require("SUPABASE_URL", "SUPABASE_SECRET_KEY")
+        _sb = create_client(config.SUPABASE_URL, config.SUPABASE_SECRET_KEY)
+    return _sb
+
+
+def get_sync_state() -> dict[str, str]:
+    rows = sb().table("sync_state").select("page_id, last_edited").execute().data
+    return {r["page_id"]: r["last_edited"] for r in rows}
+
+
+def replace_page_chunks(card, chunks, embeddings) -> None:
+    """Сначала вставляем новые чанки, потом удаляем старые: бот работает
+    параллельно с синком и не должен видеть страницу «пустой»."""
+    rows = [{
+        "page_id": card.page_id,
+        "country": card.country,
+        "program": card.program,
+        "section": c.section,
+        "status": card.status,
+        "owners": card.owners,
+        "notion_url": card.url,
+        "page_edited_at": card.last_edited,
+        "chunk_index": c.index,
+        "content": c.content,
+        "embedding": e,
+    } for c, e in zip(chunks, embeddings)]
+    new_ids = []
+    if rows:
+        res = sb().table("chunks").insert(rows).execute()
+        new_ids = [r["id"] for r in res.data]
+    query = sb().table("chunks").delete().eq("page_id", card.page_id)
+    if new_ids:
+        query = query.not_.in_("id", new_ids)
+    query.execute()
+    sb().table("sync_state").upsert(
+        {"page_id": card.page_id, "last_edited": card.last_edited}).execute()
+
+
+def delete_pages(page_ids: list[str]) -> None:
+    for pid in page_ids:
+        sb().table("chunks").delete().eq("page_id", pid).execute()
+        sb().table("sync_state").delete().eq("page_id", pid).execute()
+
+
+def list_countries() -> list[str]:
+    # считаем на сервере: select по всей таблице обрезается API на 1000 строках
+    rows = sb().rpc("list_countries", {}).execute().data
+    return [r["country"] for r in rows]
+
+
+def search(embedding, country: str | None = None, k: int = config.TOP_K) -> list[dict]:
+    resp = sb().rpc("match_chunks", {
+        "query_embedding": embedding,
+        "match_count": k,
+        "filter_country": country,
+    }).execute()
+    return resp.data
