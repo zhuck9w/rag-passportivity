@@ -100,10 +100,10 @@ def list_cards() -> list[Card]:
                 props = page["properties"]
                 cards.append(Card(
                     page_id=page["id"],
-                    program=_title_of(props),
-                    country=_prop_text(props.get(config.COUNTRY_PROP, {})),
-                    status=_prop_text(props.get(config.STATUS_PROP, {})),
-                    owners=_prop_text(props.get(config.OWNER_PROP, {})) if config.OWNER_PROP else "",
+                    program=_title_of(props).strip(),
+                    country=_prop_text(props.get(config.COUNTRY_PROP, {})).strip(),
+                    status=_prop_text(props.get(config.STATUS_PROP, {})).strip(),
+                    owners=_prop_text(props.get(config.OWNER_PROP, {})).strip() if config.OWNER_PROP else "",
                     url=page["url"],
                     last_edited=page["last_edited_time"],
                 ))
