@@ -401,7 +401,7 @@ git commit -m "feat: notion board discovery script, property names pinned"
 - Consumes: `config` (токен, id страницы, имена свойств)
 - Produces: `@dataclass Card(page_id: str, program: str, country: str, status: str, owners: str, url: str, last_edited: str)`; `list_cards() -> list[Card]`; `fetch_page_markdown(page_id: str) -> str`; чистые функции `_rich(rt_list) -> str`, `_block_lines(block, depth=0) -> list[str]`.
 
-- [ ] **Step 1: Написать падающий тест `tests/test_notion_md.py`**
+- [x] **Step 1: Написать падающий тест `tests/test_notion_md.py`**
 
 ```python
 from notion_reader import _rich, _block_lines
@@ -430,12 +430,12 @@ def test_unknown_block_skipped():
     assert _block_lines(b) == []
 ```
 
-- [ ] **Step 2: Убедиться, что тест падает**
+- [x] **Step 2: Убедиться, что тест падает**
 
 Run: `pytest tests/test_notion_md.py -q`
 Expected: FAIL / ошибка импорта `notion_reader`.
 
-- [ ] **Step 3: Реализация `notion_reader.py`**
+- [x] **Step 3: Реализация `notion_reader.py`**
 
 ```python
 """Чтение базы знаний из Notion. Только чтение: databases.query и
@@ -635,17 +635,17 @@ def fetch_page_markdown(page_id: str) -> str:
     return "\n".join(lines)
 ```
 
-- [ ] **Step 4: Тесты зелёные**
+- [x] **Step 4: Тесты зелёные**
 
 Run: `pytest tests/test_notion_md.py -q`
 Expected: `4 passed`
 
-- [ ] **Step 5: Живой смоук — одна страница целиком**
+- [x] **Step 5: Живой смоук — одна страница целиком**
 
 Run: `python -c "import notion_reader as nr; cards = nr.list_cards(); print(len(cards), 'карточек'); c = cards[0]; print(c.country, '|', c.program, '|', c.status); print(nr.fetch_page_markdown(c.page_id)[:800])"`
 Expected: число карточек (порядка десятков), метаданные первой и первые ~800 символов её текста. Открыть эту страницу в Notion и глазами сверить, что текст совпадает и ничего важного не потеряно (таблицы, списки).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add notion_reader.py tests/test_notion_md.py
