@@ -1,0 +1,14 @@
+[Unit]
+Description=KB Assistant (Slack bot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/kb-assistant
+ExecStart=/opt/kb-assistant/.venv/bin/python bot.py
+Restart=always
+RestartSec=5
+User=kbbot
+
+[Install]
+WantedBy=multi-user.target

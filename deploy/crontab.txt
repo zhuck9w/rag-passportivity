@@ -1,0 +1,4 @@
+# синхронизация каждый час в :17; flock не даёт двум sync.py работать одновременно
+17 * * * * cd /opt/kb-assistant && flock -n /opt/kb-assistant/sync.lock ./.venv/bin/python sync.py >> sync.log 2>&1
+# полная переиндексация раз в неделю — страховка от минутной точности last_edited_time
+47 3 * * 0 cd /opt/kb-assistant && flock -n /opt/kb-assistant/sync.lock ./.venv/bin/python sync.py --full >> sync.log 2>&1
