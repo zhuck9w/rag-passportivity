@@ -1077,7 +1077,7 @@ git commit -m "feat: voyage embeddings and supabase persistence layer"
 - Consumes: всё из Task 3–5
 - Produces: CLI `python sync.py [--full] [--dry-run]`; инкрементальность через `sync_state`; удаление чанков исчезнувших карточек; ошибка на одной странице не прерывает остальные.
 
-- [ ] **Step 1: `sync.py`**
+- [x] **Step 1: `sync.py`**
 
 ```python
 """Индексация базы знаний: Notion → чанки → векторы → Supabase.
@@ -1144,17 +1144,17 @@ if __name__ == "__main__":
     run(full=args.full, dry=args.dry_run)
 ```
 
-- [ ] **Step 2: Сухой прогон**
+- [x] **Step 2: Сухой прогон**
 
 Run: `python sync.py --dry-run`
 Expected: `Карточек в Notion: N; обновить: N; удалить: 0` и список всех карточек (первый запуск — всё «новое»).
 
-- [ ] **Step 3: Полная индексация**
+- [x] **Step 3: Полная индексация**
 
 Run: `python sync.py --full`
 Expected: строка `ok <страна> — <программа>: K чанков` на каждую карточку, `FAIL` — ни одной. Займёт несколько минут (лимит Notion ~3 запроса/сек).
 
-- [ ] **Step 4: Проверить содержимое** — в Supabase SQL Editor:
+- [x] **Step 4: Проверить содержимое** — в Supabase SQL Editor:
 
 ```sql
 select country, count(*) as chunks from chunks group by country order by 2 desc;
@@ -1162,12 +1162,12 @@ select content from chunks limit 3;
 ```
 Expected: страны с доски и осмысленные тексты с паспортами.
 
-- [ ] **Step 5: Проверить инкрементальность**
+- [x] **Step 5: Проверить инкрементальность**
 
 Run: `python sync.py`
 Expected: `обновить: 0; удалить: 0` — повторный запуск ничего не перерабатывает.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add sync.py
