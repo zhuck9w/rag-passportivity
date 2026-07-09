@@ -66,3 +66,18 @@ language sql stable as $$
   where c.country <> ''
   order by 1;
 $$;
+
+-- Журнал обращений к боту. Приватность: сырой текст вопроса и
+-- переформулированный запрос НЕ сохраняются — только метаданные.
+create table if not exists query_log (
+  id bigint generated always as identity primary key,
+  asked_at timestamptz not null default now(),
+  slack_user_id text not null default '',
+  user_name text not null default '',
+  channel_type text not null default '',   -- im / channel / mpim
+  countries text not null default '',      -- например "Malta, Portugal"
+  topic text not null default '',          -- тематика из фиксированного списка
+  found boolean not null default true,     -- нашлись ли фрагменты
+  fragments int not null default 0
+);
+alter table query_log enable row level security;

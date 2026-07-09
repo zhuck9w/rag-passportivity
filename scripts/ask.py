@@ -14,8 +14,8 @@ parser.add_argument("--answer", action="store_true", help="сгенериров�
 args = parser.parse_args()
 
 config.require("SUPABASE_URL", "SUPABASE_SECRET_KEY", "VOYAGE_API_KEY", "ANTHROPIC_API_KEY")
-fragments, query, country = retrieve(args.question, history=[])
-print(f"Переформулировано: {query!r}\nСтрана-фильтр: {country}")
+fragments, query, countries, topic = retrieve(args.question, history=[])
+print(f"Переформулировано: {query!r}\nСтраны: {countries}\nТема: {topic}")
 for f in fragments:
     print(f"  {f['similarity']:.3f}  {f['content'].splitlines()[0]}")
 

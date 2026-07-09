@@ -66,3 +66,19 @@ def search(embedding, country: str | None = None, k: int = config.TOP_K) -> list
         "filter_country": country,
     }).execute()
     return resp.data
+
+
+def log_query(slack_user_id: str, user_name: str, channel_type: str,
+              countries: list[str], topic: str, found: bool,
+              fragments_count: int) -> None:
+    """Журнал обращений. Приватность: текст вопроса сюда НЕ передаётся
+    и НЕ сохраняется — только метаданные (кто, где, страны, тема, найдено ли)."""
+    sb().table("query_log").insert({
+        "slack_user_id": slack_user_id,
+        "user_name": user_name,
+        "channel_type": channel_type,
+        "countries": ", ".join(countries),
+        "topic": topic,
+        "found": found,
+        "fragments": fragments_count,
+    }).execute()

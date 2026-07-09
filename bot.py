@@ -9,6 +9,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 
 import config
+import db
 from answer import answer
 from retrieval import retrieve
 
@@ -45,6 +46,26 @@ def _already_handled(key: str) -> bool:
 
 def _clean(text: str) -> str:
     return re.sub(rf"<@{BOT_USER_ID}>", "", text or "").strip()
+
+
+_user_names: dict[str, str] = {}
+
+
+def _user_name(user_id: str) -> str:
+    """Имя пользователя для журнала обращений; кэшируем, чтобы не дёргать
+    users.info на каждый вопрос. Любой сбой — просто возвращаем id."""
+    if user_id in _user_names:
+        return _user_names[user_id]
+    name = user_id
+    try:
+        info = app.client.users_info(user=user_id)["user"]
+        profile = info.get("profile") or {}
+        name = (profile.get("display_name") or profile.get("real_name")
+                or info.get("real_name") or user_id)
+    except Exception:
+        pass
+    _user_names[user_id] = name
+    return name
 
 
 def _to_history(messages: list[dict], skip_ts: str) -> list[dict]:
@@ -104,9 +125,24 @@ def handle_question(event, say) -> None:
             history = _dm_history(channel, event["ts"])
         else:
             history = []
-        fragments, query, country = retrieve(question, history)
-        log.info("q=%r -> query=%r country=%r fragments=%d",
-                 question, query, country, len(fragments))
+        fragments, query, countries, topic = retrieve(question, history)
+        log.info("q=%r -> query=%r countries=%r topic=%r fragments=%d",
+                 question, query, countries, topic, len(fragments))
+        try:
+            # Журнал без текста вопроса. Сбой (например, таблицы query_log
+            # ещё нет в БД) не должен ломать ответ пользователю.
+            user_id = event.get("user", "")
+            db.log_query(
+                slack_user_id=user_id,
+                user_name=_user_name(user_id),
+                channel_type=event.get("channel_type") or "channel",
+                countries=countries,
+                topic=topic,
+                found=bool(fragments),
+                fragments_count=len(fragments),
+            )
+        except Exception as e:
+            log.warning("не удалось записать журнал обращений: %s", e)
         if not fragments:
             say(text="В базе знаний я ничего не нашёл по этому вопросу. "
                      "Попробуйте переформулировать или указать страну.",
