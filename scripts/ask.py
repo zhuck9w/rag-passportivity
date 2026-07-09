@@ -1,0 +1,25 @@
+"""Консольная проверка: что достаёт поиск (и, с --answer, полный ответ)."""
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import config
+from retrieval import retrieve
+
+parser = argparse.ArgumentParser()
+parser.add_argument("question")
+parser.add_argument("--answer", action="store_true", help="сгенерировать полный ответ")
+args = parser.parse_args()
+
+config.require("SUPABASE_URL", "SUPABASE_SECRET_KEY", "VOYAGE_API_KEY", "ANTHROPIC_API_KEY")
+fragments, query, country = retrieve(args.question, history=[])
+print(f"Переформулировано: {query!r}\nСтрана-фильтр: {country}")
+for f in fragments:
+    print(f"  {f['similarity']:.3f}  {f['content'].splitlines()[0]}")
+
+if args.answer:
+    from answer import answer
+    print("\n--- Ответ ---")
+    print(answer(args.question, fragments, []))
