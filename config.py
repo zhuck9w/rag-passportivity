@@ -13,6 +13,21 @@ SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY", "") or os.getenv("SUPABAS
 SLACKBOT_OAUTH = os.getenv("SLACKBOT_OAUTH", "")
 SLACKBOT_APPLEVEL = os.getenv("SLACKBOT_APPLEVEL", "")
 
+# Прокси для ВСЕГО исходящего трафика — нужен, если сервер стоит там, где
+# API-провайдеры блокируют прямой доступ (например, российский VPS: Anthropic
+# и Voyage с таких адресов не отвечают). Формат: http://login:pass@host:port.
+# Включается флагом PROXY_ENABLED=true; выключен (или пуст PROXY) — работаем
+# напрямую, строка PROXY при этом может спокойно лежать в .env.
+PROXY = os.getenv("PROXY", "").strip()
+PROXY_ENABLED = os.getenv("PROXY_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+if not PROXY_ENABLED:
+    PROXY = ""
+if PROXY:
+    # notion-client, anthropic и supabase (httpx), voyageai (requests) читают
+    # эти переменные окружения сами; Slack получает прокси явно в bot.py.
+    os.environ.setdefault("HTTP_PROXY", PROXY)
+    os.environ.setdefault("HTTPS_PROXY", PROXY)
+
 EMBED_MODEL = "voyage-3.5"
 EMBED_DIM = 1024
 ANSWER_MODEL = "claude-haiku-4-5-20251001"  # обкатка; не хватит точности — "claude-opus-4-8"

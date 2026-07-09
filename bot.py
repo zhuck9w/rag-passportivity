@@ -6,6 +6,7 @@ import time
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slack_sdk import WebClient
 
 import config
 from answer import answer
@@ -19,7 +20,8 @@ config.require("SLACKBOT_OAUTH", "SLACKBOT_APPLEVEL",
                "ANTHROPIC_API_KEY", "VOYAGE_API_KEY",
                "SUPABASE_URL", "SUPABASE_SECRET_KEY")
 
-app = App(token=config.SLACKBOT_OAUTH)
+app = App(client=WebClient(token=config.SLACKBOT_OAUTH,
+                           proxy=config.PROXY or None))
 BOT_USER_ID = app.client.auth_test()["user_id"]
 
 _processed: dict[str, float] = {}
@@ -139,4 +141,5 @@ def on_message(event, say):
 
 if __name__ == "__main__":
     log.info("Бот запускается, подключаюсь к Slack…")
-    SocketModeHandler(app, config.SLACKBOT_APPLEVEL).start()
+    SocketModeHandler(app, config.SLACKBOT_APPLEVEL,
+                      proxy=config.PROXY or None).start()
