@@ -96,9 +96,13 @@ def _thread_history(channel: str, thread_ts: str, event_ts: str) -> list[dict]:
 
 def _dm_history(channel: str, event_ts: str) -> list[dict]:
     """В личке follow-up обычно пишут новым сообщением, а не в тред —
-    подтягиваем последние сообщения переписки как контекст."""
+    подтягиваем недавнюю переписку как контекст. Только свежую (TTL):
+    старые вопросы не должны влезать в новый и провоцировать модель
+    «доотчитываться» по ним."""
     resp = app.client.conversations_history(channel=channel, limit=12)
-    return _to_history(list(reversed(resp["messages"])), event_ts)  # старые → новые
+    cutoff = time.time() - config.DM_CONTEXT_TTL_MINUTES * 60
+    fresh = [m for m in resp["messages"] if float(m.get("ts", 0)) >= cutoff]
+    return _to_history(list(reversed(fresh)), event_ts)  # старые → новые
 
 
 def handle_question(event, say) -> None:
