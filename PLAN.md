@@ -664,7 +664,7 @@ git commit -m "feat: notion reader - cards and page markdown"
 - Consumes: `notion_reader.Card`, константы `config.CHUNK_*`
 - Produces: `@dataclass Chunk(content: str, section: str, index: int)`; `chunk_page(card: Card, markdown: str) -> list[Chunk]`; чистые функции `build_passport(country, program, section, status, edited_date) -> str`, `split_sections(md) -> list[tuple[str, str]]`, `split_long(text, max_chars, overlap) -> list[str]`.
 
-- [ ] **Step 1: Падающие тесты `tests/test_chunker.py`**
+- [x] **Step 1: Падающие тесты `tests/test_chunker.py`**
 
 ```python
 from chunker import build_passport, split_sections, split_long, chunk_page
@@ -727,12 +727,12 @@ def test_chunk_page_passports_everywhere():
     assert all(c.section == "Требования" for c in chunks)
 ```
 
-- [ ] **Step 2: Убедиться, что падают**
+- [x] **Step 2: Убедиться, что падают**
 
 Run: `pytest tests/test_chunker.py -q`
 Expected: FAIL (нет модуля `chunker`).
 
-- [ ] **Step 3: Реализация `chunker.py`**
+- [x] **Step 3: Реализация `chunker.py`**
 
 ```python
 """Markdown страницы → чанки. Каждый чанк начинается с «паспорта»:
@@ -874,17 +874,17 @@ def chunk_page(card: Card, markdown: str) -> list[Chunk]:
     return result
 ```
 
-- [ ] **Step 4: Тесты зелёные**
+- [x] **Step 4: Тесты зелёные**
 
 Run: `pytest tests/test_chunker.py -q`
 Expected: `8 passed`
 
-- [ ] **Step 5: Смоук на реальной странице**
+- [x] **Step 5: Смоук на реальной странице**
 
 Run: `python -c "import notion_reader as nr; from chunker import chunk_page; c = nr.list_cards()[0]; ch = chunk_page(c, nr.fetch_page_markdown(c.page_id)); print(len(ch), 'чанков'); print(ch[0].content[:300])"`
 Expected: несколько чанков, первый начинается с паспорта с реальной страной и программой.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add chunker.py tests/test_chunker.py
