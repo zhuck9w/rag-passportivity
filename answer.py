@@ -18,11 +18,19 @@ def _anthropic() -> anthropic.Anthropic:
     return _client
 
 
-def build_user_message(fragments: list[dict], question: str) -> str:
+def build_user_message(fragments: list[dict], question: str,
+                       resolved: str | None = None) -> str:
     blocks = [f"--- Фрагмент {i} ---\n{f['content']}"
               for i, f in enumerate(fragments, 1)]
-    return ("Фрагменты базы знаний:\n\n" + "\n\n".join(blocks) +
-            f"\n\nВопрос сотрудника: {question}")
+    tail = f"\n\nВопрос сотрудника: {question}"
+    if resolved and resolved.strip().lower() != question.strip().lower():
+        # Короткая реплика в диалоге («в Вануату») уже развёрнута
+        # переформулировщиком в полный вопрос — отдаём модели готовый смысл,
+        # чтобы она не объявляла реплику «неполной» и не копалась в истории.
+        tail += (f"\nКак этот вопрос понимается с учётом контекста диалога: {resolved}"
+                 "\nОтвечай именно на этот смысл; язык ответа — как в исходном "
+                 "вопросе сотрудника.")
+    return "Фрагменты базы знаний:\n\n" + "\n\n".join(blocks) + tail
 
 
 def _merge_history(history: list[dict]) -> list[dict]:
@@ -60,10 +68,11 @@ def _sources_footer(fragments: list[dict]) -> str:
     return "\n\nИсточники:\n" + "\n".join(lines)
 
 
-def answer(question: str, fragments: list[dict], history: list[dict]) -> str:
+def answer(question: str, fragments: list[dict], history: list[dict],
+           resolved: str | None = None) -> str:
     msgs = _merge_history(
         history + [{"role": "user",
-                    "text": build_user_message(fragments, question)}])
+                    "text": build_user_message(fragments, question, resolved)}])
     resp = _anthropic().messages.create(
         model=config.ANSWER_MODEL, max_tokens=1200,
         system=_SYSTEM, messages=msgs)

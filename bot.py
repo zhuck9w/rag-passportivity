@@ -152,7 +152,8 @@ def handle_question(event, say) -> None:
                      "Попробуйте переформулировать или указать страну.",
                 thread_ts=thread_ts)
             return
-        say(text=answer(question, fragments, history), thread_ts=thread_ts)
+        say(text=answer(question, fragments, history, resolved=query),
+            thread_ts=thread_ts)
     except Exception:
         log.exception("ошибка обработки вопроса")
         say(text="Что-то пошло не так. Попробуйте ещё раз через минуту.",

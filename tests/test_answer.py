@@ -22,6 +22,25 @@ def test_user_message_contains_fragments_and_question():
     msg = build_user_message(frags, "какой порог?")
     assert "порог 300" in msg
     assert "какой порог?" in msg
+    assert "понимается" not in msg  # без resolved лишней строки нет
+
+
+def test_user_message_with_resolved_short_reply():
+    frags = [{"content": "[Вануату] биометрия", "notion_url": "https://n/2",
+              "program": "P", "country": "Vanuatu", "status": "Actual"}]
+    msg = build_user_message(frags, "в вануату",
+                             resolved="с какого числа обязательна биометрия в Вануату")
+    assert "Вопрос сотрудника: в вануату" in msg
+    assert "с какого числа обязательна биометрия в Вануату" in msg
+    assert "язык ответа" in msg
+
+
+def test_user_message_resolved_equal_to_question_not_duplicated():
+    frags = [{"content": "x", "notion_url": "https://n/3",
+              "program": "P", "country": "C", "status": "Actual"}]
+    msg = build_user_message(frags, "Какой порог на Мальте?",
+                             resolved="какой порог на мальте?")
+    assert "понимается" not in msg
 
 
 def test_history_merged_and_alternating():

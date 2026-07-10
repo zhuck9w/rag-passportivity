@@ -22,4 +22,4 @@ for f in fragments:
 if args.answer:
     from answer import answer
     print("\n--- Ответ ---")
-    print(answer(args.question, fragments, []))
+    print(answer(args.question, fragments, [], resolved=query))
