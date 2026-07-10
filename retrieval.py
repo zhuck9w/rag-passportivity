@@ -78,6 +78,19 @@ def _with_anchors(fragments: list[dict], anchors: list[dict]) -> list[dict]:
     return fresh + fragments
 
 
+def _group_by_country(fragments: list[dict]) -> list[dict]:
+    """Перекладывает выдачу обзорного режима блоками по странам: фрагменты
+    одной страны идут подряд (порядок стран — по их лучшему фрагменту, внутри
+    страны — как в исходной выдаче, то есть по убыванию похожести). Когда
+    второй фрагмент страны лежит в промпте за 20 позиций от первого, между
+    ними — десятки чужих сумм и сроков, и модель смешивает факты соседних
+    стран; сплошные блоки это купируют."""
+    first: dict[str, int] = {}
+    for i, f in enumerate(fragments):
+        first.setdefault(f["country"], i)
+    return sorted(fragments, key=lambda f: first[f["country"]])
+
+
 def _pick_survey(hits: list[dict]) -> tuple[list[dict], list[str]]:
     """Обзорный режим, отбор «покрытие прежде всего»: мягкий порог, затем два
     прохода по убыванию похожести — сначала лучший фрагмент КАЖДОЙ страны,
@@ -121,7 +134,7 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
         for c in countries:
             hits += db.search(vec, c, config.SURVEY_PER_COUNTRY)
         fragments, hit_countries = _pick_survey(hits)
-        return fragments, query, hit_countries, topic
+        return _group_by_country(fragments), query, hit_countries, topic
     else:
         fragments = db.search(vec, matched[0] if matched else None)
     fragments = [f for f in fragments if f["similarity"] >= config.MIN_SIMILARITY]

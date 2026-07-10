@@ -1,4 +1,4 @@
-from retrieval import _pick_survey, _with_anchors, parse_rewrite
+from retrieval import _group_by_country, _pick_survey, _with_anchors, parse_rewrite
 
 
 def test_with_anchors_dedup_and_prepend():
@@ -134,3 +134,25 @@ def test_pick_survey_coverage_first():
     assert [(h["country"], h["similarity"]) for h in picked] == \
         [("A", 0.60), ("B", 0.46), ("A", 0.59)]
     assert countries == ["A", "B"]
+
+
+# --- _group_by_country: перекладка обзорной выдачи блоками по странам ---
+
+def test_group_by_country_contiguous_blocks():
+    # вторые фрагменты подтягиваются к первым: фрагменты одной страны подряд,
+    # порядок стран — по их лучшему фрагменту, внутри страны — как в выдаче
+    frags = [_hit("A", 0.60), _hit("B", 0.55), _hit("C", 0.50),
+             _hit("B", 0.49), _hit("A", 0.48)]
+    grouped = _group_by_country(frags)
+    assert [(h["country"], h["similarity"]) for h in grouped] == \
+        [("A", 0.60), ("A", 0.48), ("B", 0.55), ("B", 0.49), ("C", 0.50)]
+
+
+def test_group_by_country_keeps_composition():
+    frags = [_hit("A", 0.60), _hit("B", 0.55), _hit("A", 0.48)]
+    grouped = _group_by_country(frags)
+    assert sorted(id(f) for f in grouped) == sorted(id(f) for f in frags)
+
+
+def test_group_by_country_empty():
+    assert _group_by_country([]) == []
