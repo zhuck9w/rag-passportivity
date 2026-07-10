@@ -124,3 +124,13 @@ def test_pick_survey_unique_sorted_countries():
 def test_pick_survey_empty():
     picked, countries = _pick_survey([])
     assert picked == [] and countries == []
+
+
+def test_pick_survey_coverage_first():
+    # лучший фрагмент каждой страны идёт раньше вторых фрагментов
+    # более похожей страны — потолок режет глубину, а не страны
+    hits = [_hit("A", 0.60), _hit("A", 0.59), _hit("B", 0.46)]
+    picked, countries = _pick_survey(hits)
+    assert [(h["country"], h["similarity"]) for h in picked] == \
+        [("A", 0.60), ("B", 0.46), ("A", 0.59)]
+    assert countries == ["A", "B"]

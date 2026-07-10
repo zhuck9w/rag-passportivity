@@ -79,11 +79,21 @@ def _with_anchors(fragments: list[dict], anchors: list[dict]) -> list[dict]:
 
 
 def _pick_survey(hits: list[dict]) -> tuple[list[dict], list[str]]:
-    """Обзорный режим: мягкий порог, сортировка по похожести, обрезка до
-    потолка, список уникальных стран вошедших фрагментов (для журнала)."""
-    picked = [h for h in hits if h["similarity"] >= config.SURVEY_MIN_SIMILARITY]
-    picked.sort(key=lambda h: h["similarity"], reverse=True)
-    picked = picked[:config.SURVEY_MAX_FRAGMENTS]
+    """Обзорный режим, отбор «покрытие прежде всего»: мягкий порог, затем два
+    прохода по убыванию похожести — сначала лучший фрагмент КАЖДОЙ страны,
+    потом остальные фрагменты; обрезка до потолка. Так потолок съедает глубину
+    (вторые фрагменты), а не целые страны. Возвращает (фрагменты,
+    отсортированный список уникальных стран вошедших фрагментов — для журнала)."""
+    passed = [h for h in hits if h["similarity"] >= config.SURVEY_MIN_SIMILARITY]
+    passed.sort(key=lambda h: h["similarity"], reverse=True)
+    best, rest, seen = [], [], set()
+    for h in passed:
+        if h["country"] in seen:
+            rest.append(h)
+        else:
+            seen.add(h["country"])
+            best.append(h)
+    picked = (best + rest)[:config.SURVEY_MAX_FRAGMENTS]
     return picked, sorted({h["country"] for h in picked})
 
 

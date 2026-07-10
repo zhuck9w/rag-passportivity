@@ -76,6 +76,6 @@ def answer(question: str, fragments: list[dict], history: list[dict],
         history + [{"role": "user",
                     "text": build_user_message(fragments, question, resolved)}])
     resp = _anthropic().messages.create(
-        model=config.ANSWER_MODEL, max_tokens=1200,
+        model=config.ANSWER_MODEL, max_tokens=1600,
         system=_SYSTEM, messages=msgs)
     return _to_mrkdwn(resp.content[0].text) + _sources_footer(fragments)
