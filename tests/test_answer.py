@@ -32,7 +32,8 @@ def test_user_message_with_resolved_short_reply():
                              resolved="с какого числа обязательна биометрия в Вануату")
     assert "Вопрос сотрудника: в вануату" in msg
     assert "с какого числа обязательна биометрия в Вануату" in msg
-    assert "язык ответа" in msg
+    assert "Язык ответа" in msg
+    assert "подсказка, а не замена" in msg
 
 
 def test_user_message_resolved_equal_to_question_not_duplicated():
