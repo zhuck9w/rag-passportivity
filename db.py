@@ -68,6 +68,20 @@ def search(embedding, country: str | None = None, k: int = config.TOP_K) -> list
     return resp.data
 
 
+def log_sync(mode: str, cards_total: int, updated: int, failed: int,
+             deleted: int, chunks_written: int, started_at: str) -> None:
+    """Журнал запусков синхронизации (таблица sync_log)."""
+    sb().table("sync_log").insert({
+        "mode": mode,
+        "cards_total": cards_total,
+        "updated": updated,
+        "failed": failed,
+        "deleted": deleted,
+        "chunks_written": chunks_written,
+        "started_at": started_at,
+    }).execute()
+
+
 def log_query(slack_user_id: str, user_name: str, channel_type: str,
               countries: list[str], topic: str, found: bool,
               fragments_count: int) -> None:

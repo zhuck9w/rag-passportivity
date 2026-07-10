@@ -81,3 +81,17 @@ create table if not exists query_log (
   fragments int not null default 0
 );
 alter table query_log enable row level security;
+
+-- Журнал запусков синхронизации: когда обновлялись знания и сколько.
+create table if not exists sync_log (
+  id bigint generated always as identity primary key,
+  started_at timestamptz not null,
+  finished_at timestamptz not null default now(),
+  mode text not null default '',          -- incremental / full
+  cards_total int not null default 0,     -- карточек на доске Notion
+  updated int not null default 0,         -- страниц переиндексировано успешно
+  failed int not null default 0,          -- страниц с ошибкой (повторятся в след. запуске)
+  deleted int not null default 0,         -- страниц удалено из индекса
+  chunks_written int not null default 0   -- чанков записано за прогон
+);
+alter table sync_log enable row level security;

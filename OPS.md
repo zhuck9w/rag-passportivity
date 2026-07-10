@@ -111,6 +111,12 @@ $env:PYTHONUTF8='1'
 - **Чанки базы знаний**: Supabase → Table Editor → `chunks`
   (сколько всего: `select count(*) from chunks;` в SQL Editor).
 - **Журнал обращений** (кто/когда/тема): Supabase → Table Editor → `query_log`.
+- **Журнал синхронизаций** (когда обновлялись знания и сколько): Table Editor →
+  `sync_log`; последние запуски (SQL Editor):
+  ```sql
+  select started_at, finished_at, mode, updated, failed, deleted, chunks_written
+  from sync_log order by id desc limit 10;
+  ```
 - **Статистика тем за неделю** (SQL Editor):
   ```sql
   select topic, count(*) from query_log

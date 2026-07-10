@@ -4,6 +4,7 @@
 (Notion округляет last_edited_time до минуты — правка в ту же минуту,
 что и предыдущая, может проскочить; страховка — недельный --full в cron.)"""
 import argparse
+from datetime import datetime, timezone
 
 import config
 import db
@@ -15,6 +16,7 @@ from embedder import embed_texts
 def run(full: bool, dry: bool) -> None:
     config.require("NOTION_TOKEN", "NOTION_KB_PAGE_ID", "VOYAGE_API_KEY",
                    "SUPABASE_URL", "SUPABASE_SECRET_KEY")
+    started_at = datetime.now(timezone.utc).isoformat()
     cards = nr.list_cards()
     if not cards:
         raise SystemExit("Из Notion пришло 0 карточек — изменилась структура "
@@ -33,12 +35,14 @@ def run(full: bool, dry: bool) -> None:
         return
 
     failed = 0
+    chunks_written = 0
     for c in changed:
         try:
             markdown = nr.fetch_page_markdown(c.page_id)
             chunks = chunk_page(c, markdown)
             embeddings = embed_texts([ch.content for ch in chunks])
             db.replace_page_chunks(c, chunks, embeddings)
+            chunks_written += len(chunks)
             print(f"  ok {c.country} — {c.program}: {len(chunks)} чанков")
         except Exception as e:  # одна плохая страница не срывает весь прогон
             failed += 1
@@ -47,6 +51,15 @@ def run(full: bool, dry: bool) -> None:
     if gone:
         db.delete_pages(gone)
         print(f"Удалены исчезнувшие страницы: {len(gone)}")
+
+    try:  # журнал запусков; его сбой (например, таблицы ещё нет) не роняет синк
+        db.log_sync(mode="full" if full else "incremental",
+                    cards_total=len(cards), updated=len(changed) - failed,
+                    failed=failed, deleted=len(gone),
+                    chunks_written=chunks_written, started_at=started_at)
+    except Exception as e:
+        print(f"  предупреждение: не удалось записать журнал синхронизаций: {e}")
+
     if failed:
         raise SystemExit(f"Не проиндексировано страниц: {failed} — "
                          f"будут повторены при следующем запуске")
