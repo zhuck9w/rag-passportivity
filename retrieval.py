@@ -71,6 +71,13 @@ def rewrite_question(question: str, history: list[dict],
     return parse_rewrite(resp.content[0].text, question, countries)
 
 
+def _with_anchors(fragments: list[dict], anchors: list[dict]) -> list[dict]:
+    """Подмешивает якорные чанки в начало выдачи, без дублей по id."""
+    seen = {f["id"] for f in fragments}
+    fresh = [a for a in anchors if a["id"] not in seen]
+    return fresh + fragments
+
+
 def _pick_survey(hits: list[dict]) -> tuple[list[dict], list[str]]:
     """Обзорный режим: мягкий порог, сортировка по похожести, обрезка до
     потолка, список уникальных стран вошедших фрагментов (для журнала)."""
@@ -108,4 +115,13 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
     else:
         fragments = db.search(vec, matched[0] if matched else None)
     fragments = [f for f in fragments if f["similarity"] >= config.MIN_SIMILARITY]
+    if fragments and matched and len(matched) <= 3:
+        # Гарантированный контекст: первый чанк каждой страницы упомянутых
+        # стран (вводный раздел с ключевыми оговорками) — добавляем всегда,
+        # чтобы оговорки не проигрывали лотерею топ-K. Пустую выдачу не
+        # «оживляем»: оффтоп-вопрос со страной так и остаётся «не нашёл».
+        anchors = []
+        for c in matched:
+            anchors += db.page_anchors(c)
+        fragments = _with_anchors(fragments, anchors)
     return fragments, query, matched, topic

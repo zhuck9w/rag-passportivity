@@ -68,6 +68,20 @@ def search(embedding, country: str | None = None, k: int = config.TOP_K) -> list
     return resp.data
 
 
+def page_anchors(country: str) -> list[dict]:
+    """Первый чанк (chunk_index=0) каждой страницы страны: вводный раздел
+    несёт паспорт программы и ключевые оговорки (например, ограничения по
+    гражданству). При точечном вопросе добавляется в контекст гарантированно,
+    вне конкурса похожести — чтобы оговорки не зависели от лотереи топ-K."""
+    rows = (sb().table("chunks")
+            .select("id, page_id, country, program, section, status, "
+                    "notion_url, page_edited_at, content")
+            .eq("country", country).eq("chunk_index", 0).execute().data)
+    for r in rows:
+        r["similarity"] = 1.0  # маркер «гарантированный контекст»
+    return rows
+
+
 def log_sync(mode: str, cards_total: int, updated: int, failed: int,
              deleted: int, chunks_written: int, started_at: str) -> None:
     """Журнал запусков синхронизации (таблица sync_log)."""

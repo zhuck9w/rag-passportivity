@@ -1,4 +1,11 @@
-from retrieval import _pick_survey, parse_rewrite
+from retrieval import _pick_survey, _with_anchors, parse_rewrite
+
+
+def test_with_anchors_dedup_and_prepend():
+    frags = [{"id": 1, "content": "a"}, {"id": 2, "content": "b"}]
+    anchors = [{"id": 2, "content": "дубль"}, {"id": 3, "content": "интро"}]
+    merged = _with_anchors(frags, anchors)
+    assert [f["id"] for f in merged] == [3, 1, 2]  # якорь впереди, без дублей
 
 COUNTRIES = ["Мальта", "Португалия"]
 
