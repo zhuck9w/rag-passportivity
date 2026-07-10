@@ -61,12 +61,23 @@ def _to_mrkdwn(text: str) -> str:
     return text
 
 
-def _sources_footer(fragments: list[dict]) -> str:
-    seen = sorted({(f["country"].strip(), f["program"].strip(), f["notion_url"])
-                   for f in fragments if f.get("notion_url")})
+def _sources_footer(fragments: list[dict], limit: int = 3) -> str:
+    """Не больше limit ссылок, в порядке релевантности фрагментов (а не по
+    алфавиту): в обзорных ответах источников бывают десятки, простыня из 26
+    ссылок бесполезна и вводит в заблуждение. Остальное — строкой «и ещё N»."""
+    seen: list[tuple[str, str, str]] = []
+    for f in fragments:
+        if not f.get("notion_url"):
+            continue
+        key = (f["country"].strip(), f["program"].strip(), f["notion_url"])
+        if key not in seen:
+            seen.append(key)
     if not seen:
         return ""
-    lines = [f"• <{url}|{country} — {program}>" for country, program, url in seen]
+    lines = [f"• <{url}|{country} — {program}>" for country, program, url in seen[:limit]]
+    extra = len(seen) - limit
+    if extra > 0:
+        lines.append(f"• …и ещё {extra} источников в базе знаний")
     return "\n\nИсточники:\n" + "\n".join(lines)
 
 

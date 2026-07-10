@@ -1,4 +1,22 @@
-from answer import build_user_message, _merge_history, _to_mrkdwn
+from answer import build_user_message, _merge_history, _sources_footer, _to_mrkdwn
+
+
+def test_sources_footer_caps_at_three_with_more_note():
+    frags = [{"country": f"C{i}", "program": "P", "notion_url": f"https://n/{i}"}
+             for i in range(5)]
+    footer = _sources_footer(frags)
+    assert footer.count("<https://") == 3
+    assert "и ещё 2" in footer
+    assert "<https://n/0|" in footer  # порядок релевантности фрагментов, не алфавит
+
+
+def test_sources_footer_short_list_no_note():
+    frags = [{"country": "A", "program": "P", "notion_url": "https://n/1"},
+             {"country": "A", "program": "P", "notion_url": "https://n/1"},
+             {"country": "B", "program": "P", "notion_url": "https://n/2"}]
+    footer = _sources_footer(frags)
+    assert footer.count("<https://") == 2  # дубль схлопнут
+    assert "и ещё" not in footer
 
 
 def test_to_mrkdwn_slack_formatting():
