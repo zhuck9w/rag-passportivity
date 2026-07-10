@@ -36,6 +36,7 @@ def run(full: bool, dry: bool) -> None:
 
     failed = 0
     chunks_written = 0
+    programs: list[str] = []  # что именно поменялось — для журнала
     for c in changed:
         try:
             markdown = nr.fetch_page_markdown(c.page_id)
@@ -43,22 +44,29 @@ def run(full: bool, dry: bool) -> None:
             embeddings = embed_texts([ch.content for ch in chunks])
             db.replace_page_chunks(c, chunks, embeddings)
             chunks_written += len(chunks)
+            programs.append(f"{c.country} — {c.program}")
             print(f"  ok {c.country} — {c.program}: {len(chunks)} чанков")
         except Exception as e:  # одна плохая страница не срывает весь прогон
             failed += 1
+            programs.append(f"FAIL: {c.country} — {c.program}")
             print(f"  FAIL {c.country} — {c.program}: {e}")
 
     if gone:
         db.delete_pages(gone)
+        programs += [f"удалена страница {pid}" for pid in gone]
         print(f"Удалены исчезнувшие страницы: {len(gone)}")
 
-    try:  # журнал запусков; его сбой (например, таблицы ещё нет) не роняет синк
-        db.log_sync(mode="full" if full else "incremental",
-                    cards_total=len(cards), updated=len(changed) - failed,
-                    failed=failed, deleted=len(gone),
-                    chunks_written=chunks_written, started_at=started_at)
-    except Exception as e:
-        print(f"  предупреждение: не удалось записать журнал синхронизаций: {e}")
+    if programs:
+        # журнал пишем только когда что-то реально поменялось; «жив ли cron»
+        # видно по sync.log. Сбой журнала (нет таблицы и т.п.) синк не роняет.
+        try:
+            db.log_sync(mode="full" if full else "incremental",
+                        cards_total=len(cards), updated=len(changed) - failed,
+                        failed=failed, deleted=len(gone),
+                        chunks_written=chunks_written, started_at=started_at,
+                        programs="; ".join(programs))
+        except Exception as e:
+            print(f"  предупреждение: не удалось записать журнал синхронизаций: {e}")
 
     if failed:
         raise SystemExit(f"Не проиндексировано страниц: {failed} — "

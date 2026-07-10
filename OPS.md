@@ -111,10 +111,11 @@ $env:PYTHONUTF8='1'
 - **Чанки базы знаний**: Supabase → Table Editor → `chunks`
   (сколько всего: `select count(*) from chunks;` в SQL Editor).
 - **Журнал обращений** (кто/когда/тема): Supabase → Table Editor → `query_log`.
-- **Журнал синхронизаций** (когда обновлялись знания и сколько): Table Editor →
-  `sync_log`; последние запуски (SQL Editor):
+- **Журнал синхронизаций** (когда и какие программы обновились): Table Editor →
+  `sync_log`. Пишется только когда что-то реально поменялось; жив ли cron —
+  видно по `sync.log` на сервере. Последние изменения (SQL Editor):
   ```sql
-  select started_at, finished_at, mode, updated, failed, deleted, chunks_written
+  select started_at, mode, updated, failed, deleted, programs
   from sync_log order by id desc limit 10;
   ```
 - **Статистика тем за неделю** (SQL Editor):

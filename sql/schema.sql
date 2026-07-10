@@ -92,6 +92,7 @@ create table if not exists sync_log (
   updated int not null default 0,         -- страниц переиндексировано успешно
   failed int not null default 0,          -- страниц с ошибкой (повторятся в след. запуске)
   deleted int not null default 0,         -- страниц удалено из индекса
-  chunks_written int not null default 0   -- чанков записано за прогон
+  chunks_written int not null default 0,  -- чанков записано за прогон
+  programs text not null default ''       -- какие программы поменялись ("; "-список)
 );
 alter table sync_log enable row level security;

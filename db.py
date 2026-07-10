@@ -83,7 +83,8 @@ def page_anchors(country: str) -> list[dict]:
 
 
 def log_sync(mode: str, cards_total: int, updated: int, failed: int,
-             deleted: int, chunks_written: int, started_at: str) -> None:
+             deleted: int, chunks_written: int, started_at: str,
+             programs: str = "") -> None:
     """Журнал запусков синхронизации (таблица sync_log)."""
     sb().table("sync_log").insert({
         "mode": mode,
@@ -93,6 +94,7 @@ def log_sync(mode: str, cards_total: int, updated: int, failed: int,
         "deleted": deleted,
         "chunks_written": chunks_written,
         "started_at": started_at,
+        "programs": programs,
     }).execute()
 
 
