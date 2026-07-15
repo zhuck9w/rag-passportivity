@@ -1,4 +1,30 @@
-from answer import build_user_message, _merge_history, _sources_footer, _to_mrkdwn
+from answer import (about_text, build_user_message, _merge_history,
+                    pick_smalltalk_reply, _sources_footer, _to_mrkdwn)
+
+
+# --- детерминированные ответы маршрутизатора намерений ---
+
+def test_about_text_substitutes_count_and_list():
+    out = about_text(["Мальта", "Кипр", "Гренада"])
+    assert "3 стран" in out
+    assert "Мальта, Кипр, Гренада" in out
+    assert "[[" not in out  # плейсхолдеры не протекают в ответ
+
+
+def test_smalltalk_reply_thanks_russian():
+    out = pick_smalltalk_reply("Спасибо большое!")
+    assert out.startswith("Пожалуйста!")
+    assert "порог инвестиций на Мальте" in out
+
+
+def test_smalltalk_reply_thanks_english():
+    assert pick_smalltalk_reply("Thank you!").startswith("Пожалуйста!")
+
+
+def test_smalltalk_reply_greeting():
+    out = pick_smalltalk_reply("привет")
+    assert out.startswith("Привет!")
+    assert "что ты умеешь" in out
 
 
 def test_sources_footer_caps_at_three_with_more_note():

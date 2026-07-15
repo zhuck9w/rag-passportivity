@@ -29,15 +29,18 @@ def _fmt_history(history: list[dict]) -> str:
     return "\n".join(f"{names[m['role']]}: {m['text'][:500]}" for m in history[-8:])
 
 
+_INTENTS = {"knowledge", "meta", "smalltalk"}
+
+
 def parse_rewrite(raw: str, fallback_query: str,
-                  known_countries: list[str]) -> tuple[str, list[str], list[str], str, bool]:
+                  known_countries: list[str]) -> tuple[str, list[str], list[str], str, bool, str]:
     m = re.search(r"\{.*\}", raw, re.S)
     if not m:
-        return fallback_query, [], [], "другое", False
+        return fallback_query, [], [], "другое", False, "knowledge"
     try:
         data = json.loads(m.group(0))
     except json.JSONDecodeError:
-        return fallback_query, [], [], "другое", False
+        return fallback_query, [], [], "другое", False, "knowledge"
     query = (data.get("query") or fallback_query).strip()
     raw_countries = data.get("countries") or []
     if isinstance(raw_countries, str):
@@ -55,11 +58,18 @@ def parse_rewrite(raw: str, fallback_query: str,
     else:
         topic = topic.strip()
     survey = bool(data.get("survey"))
-    return query, matched, unknown, topic, survey
+    intent = data.get("intent")
+    if not isinstance(intent, str) or intent.strip() not in _INTENTS:
+        # мусор или отсутствие поля — считаем содержательным вопросом:
+        # лучше лишний раз поискать, чем отмахнуться визиткой
+        intent = "knowledge"
+    else:
+        intent = intent.strip()
+    return query, matched, unknown, topic, survey, intent
 
 
 def rewrite_question(question: str, history: list[dict],
-                     countries: list[str]) -> tuple[str, list[str], list[str], str, bool]:
+                     countries: list[str]) -> tuple[str, list[str], list[str], str, bool, str]:
     prompt = (_REWRITE_TEMPLATE
               .replace("[[COUNTRIES]]", ", ".join(countries))
               .replace("[[TOPICS]]", ", ".join(config.TOPICS))
@@ -110,14 +120,18 @@ def _pick_survey(hits: list[dict]) -> tuple[list[dict], list[str]]:
     return picked, sorted({h["country"] for h in picked})
 
 
-def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[str], str]:
-    """→ (фрагменты, переформулированный запрос, распознанные страны, тема)."""
+def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[str], str, str]:
+    """→ (фрагменты, переформулированный запрос, распознанные страны, тема, intent)."""
     countries = db.list_countries()
-    query, matched, unknown, topic, survey = rewrite_question(question, history, countries)
+    query, matched, unknown, topic, survey, intent = rewrite_question(question, history, countries)
+    if intent in ("meta", "smalltalk"):
+        # приветствие или вопрос про самого бота: ответ соберёт код
+        # детерминированно, поиск (и Voyage-вызов) не нужен вовсе
+        return [], query, [], topic, intent
     if unknown and not matched:
         # спрашивают про страну, которой нет в базе — честное «не нашёл»,
         # Claude не вызываем и не даём ему фрагменты про другие страны
-        return [], query, [], topic
+        return [], query, [], topic, "knowledge"
     vec = embed_query(query)
     if len(matched) >= 2:
         # сравнение стран: набираем фрагменты по каждой, чтобы одна страна
@@ -134,7 +148,7 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
         for c in countries:
             hits += db.search(vec, c, config.SURVEY_PER_COUNTRY)
         fragments, hit_countries = _pick_survey(hits)
-        return _group_by_country(fragments), query, hit_countries, topic
+        return _group_by_country(fragments), query, hit_countries, topic, "knowledge"
     else:
         fragments = db.search(vec, matched[0] if matched else None)
     fragments = [f for f in fragments if f["similarity"] >= config.MIN_SIMILARITY]
@@ -147,4 +161,4 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
         for c in matched:
             anchors += db.page_anchors(c)
         fragments = _with_anchors(fragments, anchors)
-    return fragments, query, matched, topic
+    return fragments, query, matched, topic, "knowledge"

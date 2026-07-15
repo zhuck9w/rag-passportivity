@@ -10,7 +10,7 @@ from slack_sdk import WebClient
 
 import config
 import db
-from answer import answer
+from answer import about_text, answer, pick_smalltalk_reply
 from retrieval import retrieve
 
 logging.basicConfig(level=logging.INFO,
@@ -129,9 +129,18 @@ def handle_question(event, say) -> None:
             history = _dm_history(channel, event["ts"])
         else:
             history = []
-        fragments, query, countries, topic = retrieve(question, history)
-        log.info("q=%r -> query=%r countries=%r topic=%r fragments=%d",
-                 question, query, countries, topic, len(fragments))
+        fragments, query, countries, topic, intent = retrieve(question, history)
+        log.info("q=%r -> query=%r countries=%r topic=%r intent=%r fragments=%d",
+                 question, query, countries, topic, intent, len(fragments))
+        if intent == "smalltalk":
+            # приветствие/благодарность: детерминированный ответ кода,
+            # в журнал обращений не пишем — это не вопрос к базе
+            say(text=pick_smalltalk_reply(question), thread_ts=thread_ts)
+            return
+        if intent == "meta":
+            # вопрос про самого бота: визитка с актуальным списком стран
+            say(text=about_text(db.list_countries()), thread_ts=thread_ts)
+            return
         try:
             # Журнал без текста вопроса. Сбой (например, таблицы query_log
             # ещё нет в БД) не должен ломать ответ пользователю.

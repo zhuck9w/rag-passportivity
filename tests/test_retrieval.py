@@ -13,7 +13,7 @@ COUNTRIES = ["Мальта", "Португалия"]
 def test_parse_ok_and_country_case_insensitive():
     raw = ('Вот JSON: {"query": "порог инвестиций Мальта", "countries": ["мальта"], '
            '"topic": "инвестиции и стоимость"}')
-    q, matched, unknown, topic, survey = parse_rewrite(raw, "исходный", COUNTRIES)
+    q, matched, unknown, topic, survey, intent = parse_rewrite(raw, "исходный", COUNTRIES)
     assert q == "порог инвестиций Мальта"
     assert matched == ["Мальта"] and unknown == []
     assert topic == "инвестиции и стоимость"
@@ -21,69 +21,92 @@ def test_parse_ok_and_country_case_insensitive():
 
 def test_parse_two_countries():
     raw = '{"query": "сравнение порогов", "countries": ["Мальта", "Португалия"]}'
-    q, matched, unknown, topic, survey = parse_rewrite(raw, "и", COUNTRIES)
+    q, matched, unknown, topic, survey, intent = parse_rewrite(raw, "и", COUNTRIES)
     assert matched == ["Мальта", "Португалия"] and unknown == []
 
 
 def test_parse_empty_countries():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "все программы", "countries": []}', "и", COUNTRIES)
     assert matched == [] and unknown == []
 
 
 def test_parse_garbage_falls_back():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         "не смогу помочь", "исходный вопрос", COUNTRIES)
-    assert (q, matched, unknown, topic, survey) == ("исходный вопрос", [], [], "другое", False)
+    assert (q, matched, unknown, topic, survey, intent) == \
+        ("исходный вопрос", [], [], "другое", False, "knowledge")
 
 
 def test_parse_unknown_country_reported():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "q", "countries": ["Атлантида"]}', "и", COUNTRIES)
     assert matched == [] and unknown == ["Атлантида"]
 
 
 def test_parse_valid_topic():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "q", "countries": [], "topic": "налоги"}', "и", COUNTRIES)
     assert topic == "налоги"
 
 
 def test_parse_invalid_topic_becomes_other():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "q", "countries": [], "topic": "погода на Марсе"}', "и", COUNTRIES)
     assert topic == "другое"
 
 
 def test_parse_missing_topic_becomes_other():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "q", "countries": []}', "и", COUNTRIES)
     assert topic == "другое"
 
 
 def test_parse_survey_true():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "программы ВНЖ в ЕС", "countries": [], "survey": true}', "и", COUNTRIES)
     assert survey is True
 
 
 def test_parse_survey_false():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "q", "countries": [], "survey": false}', "и", COUNTRIES)
     assert survey is False
 
 
 def test_parse_survey_missing_defaults_false():
-    q, matched, unknown, topic, survey = parse_rewrite(
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
         '{"query": "q", "countries": []}', "и", COUNTRIES)
     assert survey is False
 
 
 def test_parse_survey_garbage_defaults_false():
     for junk in ("null", "0", '""', "[]"):
-        q, matched, unknown, topic, survey = parse_rewrite(
+        q, matched, unknown, topic, survey, intent = parse_rewrite(
             '{"query": "q", "countries": [], "survey": %s}' % junk, "и", COUNTRIES)
         assert survey is False, junk
+
+
+# --- intent: маршрутизатор намерений ---
+
+def test_parse_intent_valid_values():
+    for value in ("knowledge", "meta", "smalltalk"):
+        q, matched, unknown, topic, survey, intent = parse_rewrite(
+            '{"query": "q", "countries": [], "intent": "%s"}' % value, "и", COUNTRIES)
+        assert intent == value
+
+
+def test_parse_intent_garbage_becomes_knowledge():
+    for junk in ('"болтовня"', '"META"', "42", "null", "[]", "true"):
+        q, matched, unknown, topic, survey, intent = parse_rewrite(
+            '{"query": "q", "countries": [], "intent": %s}' % junk, "и", COUNTRIES)
+        assert intent == "knowledge", junk
+
+
+def test_parse_intent_missing_becomes_knowledge():
+    q, matched, unknown, topic, survey, intent = parse_rewrite(
+        '{"query": "q", "countries": []}', "и", COUNTRIES)
+    assert intent == "knowledge"
 
 
 # --- _pick_survey: чистая логика обзорного режима ---

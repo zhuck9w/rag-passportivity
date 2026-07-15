@@ -8,6 +8,28 @@ import config
 
 _client = None
 _SYSTEM = (Path(__file__).parent / "prompts" / "system.txt").read_text(encoding="utf-8")
+_ABOUT_PATH = Path(__file__).parent / "prompts" / "about.txt"
+
+
+def about_text(countries: list[str]) -> str:
+    """Детерминированная «визитка» бота для intent=meta: шаблон из
+    prompts/about.txt с подстановкой числа и списка стран базы."""
+    return (_ABOUT_PATH.read_text(encoding="utf-8")
+            .replace("[[COUNT]]", str(len(countries)))
+            .replace("[[COUNTRIES]]", ", ".join(countries))
+            .strip())
+
+
+def pick_smalltalk_reply(question: str) -> str:
+    """Детерминированный ответ на приветствие/благодарность (intent=smalltalk):
+    собирает код, а не модель — никаких «в базе я ничего не нашёл»."""
+    q = question.lower()
+    if "спасиб" in q or "thank" in q:
+        return ("Пожалуйста! Обращайтесь — я всегда тут. Спросите про любую "
+                "программу, например: «какой порог инвестиций на Мальте?»")
+    return ("Привет! Я ассистент по базе знаний Passportivity о программах "
+            "гражданства и ВНЖ. Спросите, например: «какой порог инвестиций "
+            "на Мальте?» — или напишите «что ты умеешь».")
 
 
 def _anthropic() -> anthropic.Anthropic:
