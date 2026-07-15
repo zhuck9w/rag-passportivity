@@ -6,7 +6,7 @@ from answer import (about_text, build_user_message, _merge_history,
 
 def test_about_text_substitutes_count_and_list():
     out = about_text(["Мальта", "Кипр", "Гренада"])
-    assert "3 стран" in out
+    assert "(сейчас 3)" in out
     assert "Мальта, Кипр, Гренада" in out
     assert "[[" not in out  # плейсхолдеры не протекают в ответ
 
