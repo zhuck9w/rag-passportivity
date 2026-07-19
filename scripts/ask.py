@@ -14,7 +14,7 @@ parser.add_argument("--answer", action="store_true", help="сгенериров�
 args = parser.parse_args()
 
 config.require("SUPABASE_URL", "SUPABASE_SECRET_KEY", "VOYAGE_API_KEY", "ANTHROPIC_API_KEY")
-fragments, query, countries, topic, intent = retrieve(args.question, history=[])
+fragments, query, countries, topic, intent, hint = retrieve(args.question, history=[])
 print(f"Переформулировано: {query!r}\nСтраны: {countries}\nТема: {topic}\nIntent: {intent}")
 
 if intent == "smalltalk":
@@ -32,6 +32,9 @@ if intent == "meta":
 
 for f in fragments:
     print(f"  {f['similarity']:.3f}  {f['content'].splitlines()[0]}")
+
+if hint:
+    print(f"Подсказка «почти попал»: {hint}")
 
 if args.answer:
     from answer import answer

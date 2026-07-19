@@ -1,4 +1,5 @@
-from retrieval import _group_by_country, _pick_survey, _with_anchors, parse_rewrite
+from retrieval import (_group_by_country, _pick_survey, _with_anchors,
+                       build_hint, extract_rare_terms, parse_rewrite)
 
 
 def test_with_anchors_dedup_and_prepend():
@@ -157,6 +158,46 @@ def test_pick_survey_coverage_first():
     assert [(h["country"], h["similarity"]) for h in picked] == \
         [("A", 0.60), ("B", 0.46), ("A", 0.59)]
     assert countries == ["A", "B"]
+
+
+# --- extract_rare_terms: термины лексического спасателя ---
+
+def test_rare_terms_lowercase_latin_in_russian_question():
+    # «fiu» строчными в преимущественно кириллическом вопросе — реальный инцидент
+    assert extract_rare_terms("fiu что такое?") == ["fiu"]
+
+
+def test_rare_terms_caps_abbreviation_in_english_question():
+    assert extract_rare_terms("What does NHR mean for taxes?") == ["NHR"]
+
+
+def test_rare_terms_letter_plus_digits():
+    assert extract_rare_terms("Что такое виза D7?") == ["D7"]
+
+
+def test_rare_terms_english_without_abbreviations_empty():
+    assert extract_rare_terms("what is the investment threshold in Malta?") == []
+
+
+def test_rare_terms_pure_russian_empty():
+    assert extract_rare_terms("какой порог на Мальте?") == []
+
+
+def test_rare_terms_unique_ordered_capped_at_three():
+    assert extract_rare_terms("FIU и ещё раз FIU, а также NHR, CIIP и MPRP") == \
+        ["FIU", "NHR", "CIIP"]
+
+
+# --- build_hint: подсказка «почти попал» ---
+
+def test_build_hint_with_section():
+    frag = {"country": "Vanuatu", "program": "CIIP", "section": "Основная информация"}
+    assert build_hint(frag) == "Vanuatu — CIIP, раздел «Основная информация»"
+
+
+def test_build_hint_without_section():
+    assert build_hint({"country": "Vanuatu", "program": "CIIP", "section": ""}) == \
+        "Vanuatu — CIIP"
 
 
 # --- _group_by_country: перекладка обзорной выдачи блоками по странам ---

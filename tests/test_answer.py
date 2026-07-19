@@ -1,5 +1,6 @@
 from answer import (about_text, build_user_message, _merge_history,
-                    pick_smalltalk_reply, _sources_footer, _to_mrkdwn)
+                    pick_smalltalk_reply, smart_refusal, _sources_footer,
+                    _to_mrkdwn)
 
 
 # --- детерминированные ответы маршрутизатора намерений ---
@@ -25,6 +26,25 @@ def test_smalltalk_reply_greeting():
     out = pick_smalltalk_reply("привет")
     assert out.startswith("Привет!")
     assert "что ты умеешь" in out
+
+
+# --- smart_refusal: без истории модель не вызывается, только заготовка ---
+
+def test_smart_refusal_no_history_is_stock_text():
+    assert smart_refusal("что такое xyz?", []) == \
+        ("В базе знаний я ничего не нашёл по этому вопросу. "
+         "Попробуйте переформулировать или указать страну.")
+
+
+def test_smart_refusal_hint_appended():
+    out = smart_refusal("вопрос", [], hint="Vanuatu — CIIP")
+    assert out.startswith("В базе знаний я ничего не нашёл")
+    assert "Возможно, вы имели в виду: *Vanuatu — CIIP*." in out
+    assert "Попробуйте спросить об этом прямо." in out
+
+
+def test_smart_refusal_without_hint_no_tail():
+    assert "Возможно, вы имели в виду" not in smart_refusal("вопрос", [])
 
 
 def test_sources_footer_caps_at_three_with_more_note():

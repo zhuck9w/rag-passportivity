@@ -68,6 +68,22 @@ def search(embedding, country: str | None = None, k: int = config.TOP_K) -> list
     return resp.data
 
 
+def find_by_term(term: str, country: str | None = None, limit: int = 8) -> list[dict]:
+    """Лексический поиск: чанки, где термин встречается буквально (без учёта
+    регистра). Спасает вопросы про аббревиатуры (FIU, NHR, D7), которые
+    векторный поиск кладёт ниже порога. Колонки — те же, что у match_chunks."""
+    query = (sb().table("chunks")
+             .select("id, page_id, country, program, section, status, "
+                     "notion_url, page_edited_at, content")
+             .ilike("content", "%" + term + "%"))
+    if country:
+        query = query.eq("country", country)
+    rows = query.limit(limit).execute().data
+    for r in rows:
+        r["similarity"] = 1.0  # маркер «вне конкурса», как в page_anchors
+    return rows
+
+
 def page_anchors(country: str) -> list[dict]:
     """Первый чанк (chunk_index=0) каждой страницы страны: вводный раздел
     несёт паспорт программы и ключевые оговорки (например, ограничения по

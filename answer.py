@@ -8,7 +8,11 @@ import config
 
 _client = None
 _SYSTEM = (Path(__file__).parent / "prompts" / "system.txt").read_text(encoding="utf-8")
+_REFUSAL_SYSTEM = (Path(__file__).parent / "prompts" / "refusal.txt").read_text(encoding="utf-8")
 _ABOUT_PATH = Path(__file__).parent / "prompts" / "about.txt"
+
+_REFUSAL_FALLBACK = ("В базе знаний я ничего не нашёл по этому вопросу. "
+                     "Попробуйте переформулировать или указать страну.")
 
 
 def about_text(countries: list[str]) -> str:
@@ -101,6 +105,30 @@ def _sources_footer(fragments: list[dict], limit: int = 3) -> str:
     if extra > 0:
         lines.append(f"• …и ещё {extra} источников в базе знаний")
     return "\n\nИсточники:\n" + "\n".join(lines)
+
+
+def smart_refusal(question: str, history: list[dict], hint: str | None = None) -> str:
+    """Отказ при пустой выдаче. Если есть история диалога — дешёвая модель
+    отвечает СТРОГО по ней (например, «напомни, что ты писал выше»), любой
+    сбой вызова откатывает на заготовку; без истории — сразу заготовка.
+    Подсказка «почти попал» (hint) добавляется хвостом в любом случае."""
+    text = _REFUSAL_FALLBACK
+    if history:
+        try:
+            msgs = _merge_history(history + [{
+                "role": "user",
+                "text": f"Вопрос сотрудника (в базе знаний по нему ничего не нашлось): {question}",
+            }])
+            resp = _anthropic().messages.create(
+                model=config.REWRITE_MODEL, max_tokens=400,
+                system=_REFUSAL_SYSTEM, messages=msgs)
+            text = _to_mrkdwn(resp.content[0].text)
+        except Exception:
+            text = _REFUSAL_FALLBACK
+    if hint:
+        text += (f"\n\nВозможно, вы имели в виду: *{hint}*. "
+                 "Попробуйте спросить об этом прямо.")
+    return text
 
 
 def answer(question: str, fragments: list[dict], history: list[dict],

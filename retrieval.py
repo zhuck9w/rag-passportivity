@@ -120,18 +120,79 @@ def _pick_survey(hits: list[dict]) -> tuple[list[dict], list[str]]:
     return picked, sorted({h["country"] for h in picked})
 
 
-def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[str], str, str]:
-    """→ (фрагменты, переформулированный запрос, распознанные страны, тема, intent)."""
+_TERM_RE = re.compile(r"[A-Za-z][A-Za-z0-9-]{1,7}")
+_CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
+_LATIN_RE = re.compile(r"[A-Za-z]")
+
+
+def extract_rare_terms(question: str) -> list[str]:
+    """Редкие термины вопроса для лексического спасателя. Кандидаты:
+    (а) аббревиатура полностью капсом длиной 2-6 (FIU, NHR, MPRP, CIIP)
+        или буква+цифры (D7, E2) — в вопросе на любом языке;
+    (б) в преимущественно кириллическом вопросе (кириллических букв больше,
+        чем латинских) — любой латинский токен длиной 2-7: ловит «fiu»
+        строчными в русском вопросе. Для англоязычного вопроса эта ветка
+        не срабатывает — иначе спасатель тащил бы каждое слово.
+    До 3 уникальных, в порядке появления."""
+    mostly_cyrillic = (len(_CYRILLIC_RE.findall(question))
+                       > len(_LATIN_RE.findall(question)))
+    terms: list[str] = []
+    seen: set[str] = set()
+    for token in _TERM_RE.findall(question):
+        is_abbrev = ((token.isalpha() and token.isupper() and 2 <= len(token) <= 6)
+                     or re.fullmatch(r"[A-Za-z]\d+", token) is not None)
+        if not (is_abbrev or (mostly_cyrillic and 2 <= len(token) <= 7)):
+            continue
+        if token.lower() in seen:
+            continue
+        seen.add(token.lower())
+        terms.append(token)
+        if len(terms) == 3:
+            break
+    return terms
+
+
+def _lexical_rescue(question: str, matched: list[str]) -> list[dict]:
+    """Спасение пустой выдачи точным вхождением редких терминов: объединение
+    находок без дублей по id, сортировка по числу вхождений терминов (без
+    учёта регистра) по убыванию, обрезка до потолка."""
+    terms = extract_rare_terms(question)
+    if not terms:
+        return []
+    country = matched[0] if len(matched) == 1 else None
+    found: dict[int, dict] = {}
+    for term in terms:
+        for row in db.find_by_term(term, country):
+            found.setdefault(row["id"], row)
+
+    def occurrences(row: dict) -> int:
+        content = row["content"].lower()
+        return sum(content.count(t.lower()) for t in terms)
+
+    rows = sorted(found.values(), key=occurrences, reverse=True)
+    return rows[:config.RESCUE_MAX_FRAGMENTS]
+
+
+def build_hint(fragment: dict) -> str:
+    """Подсказка «почти попал» из паспортных полей лучшего хита."""
+    section = fragment.get("section")
+    return (f"{fragment['country']} — {fragment['program']}"
+            + (f", раздел «{section}»" if section else ""))
+
+
+def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[str], str, str, str | None]:
+    """→ (фрагменты, переформулированный запрос, распознанные страны, тема,
+    intent, подсказка «почти попал» или None)."""
     countries = db.list_countries()
     query, matched, unknown, topic, survey, intent = rewrite_question(question, history, countries)
     if intent in ("meta", "smalltalk"):
         # приветствие или вопрос про самого бота: ответ соберёт код
         # детерминированно, поиск (и Voyage-вызов) не нужен вовсе
-        return [], query, [], topic, intent
+        return [], query, [], topic, intent, None
     if unknown and not matched:
         # спрашивают про страну, которой нет в базе — честное «не нашёл»,
         # Claude не вызываем и не даём ему фрагменты про другие страны
-        return [], query, [], topic, "knowledge"
+        return [], query, [], topic, "knowledge", None
     vec = embed_query(query)
     if len(matched) >= 2:
         # сравнение стран: набираем фрагменты по каждой, чтобы одна страна
@@ -148,10 +209,19 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
         for c in countries:
             hits += db.search(vec, c, config.SURVEY_PER_COUNTRY)
         fragments, hit_countries = _pick_survey(hits)
-        return _group_by_country(fragments), query, hit_countries, topic, "knowledge"
+        return _group_by_country(fragments), query, hit_countries, topic, "knowledge", None
     else:
         fragments = db.search(vec, matched[0] if matched else None)
+    best = max(fragments, key=lambda f: f["similarity"], default=None)
     fragments = [f for f in fragments if f["similarity"] >= config.MIN_SIMILARITY]
+    hint = None
+    if not fragments:
+        # Лексический спасатель: термины берём из ИСХОДНОГО вопроса —
+        # переформулировщик мог «расшифровать» аббревиатуру и потерять её
+        fragments = _lexical_rescue(question, matched)
+        if (not fragments and best is not None
+                and config.NEAR_MISS_MIN <= best["similarity"] < config.MIN_SIMILARITY):
+            hint = build_hint(best)
     if fragments and matched and len(matched) <= 3:
         # Гарантированный контекст: первый чанк каждой страницы упомянутых
         # стран (вводный раздел с ключевыми оговорками) — добавляем всегда,
@@ -161,4 +231,4 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
         for c in matched:
             anchors += db.page_anchors(c)
         fragments = _with_anchors(fragments, anchors)
-    return fragments, query, matched, topic, "knowledge"
+    return fragments, query, matched, topic, "knowledge", hint

@@ -10,7 +10,7 @@ from slack_sdk import WebClient
 
 import config
 import db
-from answer import about_text, answer, pick_smalltalk_reply
+from answer import about_text, answer, pick_smalltalk_reply, smart_refusal
 from retrieval import retrieve
 
 logging.basicConfig(level=logging.INFO,
@@ -129,9 +129,9 @@ def handle_question(event, say) -> None:
             history = _dm_history(channel, event["ts"])
         else:
             history = []
-        fragments, query, countries, topic, intent = retrieve(question, history)
-        log.info("q=%r -> query=%r countries=%r topic=%r intent=%r fragments=%d",
-                 question, query, countries, topic, intent, len(fragments))
+        fragments, query, countries, topic, intent, hint = retrieve(question, history)
+        log.info("q=%r -> query=%r countries=%r topic=%r intent=%r fragments=%d hint=%r",
+                 question, query, countries, topic, intent, len(fragments), hint)
         if intent == "smalltalk":
             # приветствие/благодарность: детерминированный ответ кода,
             # в журнал обращений не пишем — это не вопрос к базе
@@ -157,9 +157,9 @@ def handle_question(event, say) -> None:
         except Exception as e:
             log.warning("не удалось записать журнал обращений: %s", e)
         if not fragments:
-            say(text="В базе знаний я ничего не нашёл по этому вопросу. "
-                     "Попробуйте переформулировать или указать страну.",
-                thread_ts=thread_ts)
+            # умный отказ: заземлён историей диалога, плюс подсказка
+            # «почти попал», если лучший хит был чуть ниже порога
+            say(text=smart_refusal(question, history, hint), thread_ts=thread_ts)
             return
         say(text=answer(question, fragments, history, resolved=query),
             thread_ts=thread_ts)
