@@ -31,7 +31,12 @@ if PROXY:
 EMBED_MODEL = "voyage-3.5"
 EMBED_DIM = 1024
 ANSWER_MODEL = "claude-haiku-4-5-20251001"  # обкатка; не хватит точности — "claude-opus-4-8"
-REWRITE_MODEL = "claude-haiku-4-5-20251001"
+# Переформулировщик — «ствол мозга» конвейера (перевод вопроса на язык базы,
+# страны, intent, обзорность). С 2026-07-12 — Sonnet: дисциплина инструкций и
+# перевод разговорных формулировок заметно сильнее Haiku (~+$0.003-0.005 на
+# вопрос). ОТКАТ на Haiku без деплоя: строка REWRITE_MODEL=claude-haiku-4-5-20251001
+# в .env на сервере + systemctl restart kb-bot. Пусто в .env = дефолт ниже.
+REWRITE_MODEL = os.getenv("REWRITE_MODEL", "").strip() or "claude-sonnet-5"
 
 CHUNK_MAX_CHARS = 2000      # ~1-3 абзаца
 CHUNK_MIN_CHARS = 200       # мельче — приклеиваем к соседнему куску того же раздела

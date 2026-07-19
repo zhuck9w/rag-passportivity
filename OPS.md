@@ -137,5 +137,6 @@ $env:PYTHONUTF8='1'
 | Константа | Что делает | Сейчас |
 |---|---|---|
 | `ANSWER_MODEL` | модель ответов (качество/цена) | Haiku 4.5; апгрейд → `claude-opus-4-8` |
+| `REWRITE_MODEL` | модель переформулировщика | Sonnet 5 (дефолт из config.py). **Откат на Haiku без деплоя:** в `.env` на сервере добавить `REWRITE_MODEL=claude-haiku-4-5-20251001` + `sudo systemctl restart kb-bot` |
 | `TOP_K` | сколько фрагментов даём модели | 8 |
-| `MIN_SIMILARITY` | порог отсечения нерелевантного | 0.54 |
+| `MIN_SIMILARITY` | порог отсечения нерелевантного | 0.55 |

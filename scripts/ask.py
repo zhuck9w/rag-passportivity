@@ -37,6 +37,11 @@ if hint:
     print(f"Подсказка «почти попал»: {hint}")
 
 if args.answer:
-    from answer import answer
     print("\n--- Ответ ---")
-    print(answer(args.question, fragments, [], resolved=query))
+    if fragments:
+        from answer import answer
+        print(answer(args.question, fragments, [], resolved=query))
+    else:
+        # зеркалим поведение бота: при нуле фрагментов — умный отказ
+        from answer import smart_refusal
+        print(smart_refusal(args.question, [], hint))
