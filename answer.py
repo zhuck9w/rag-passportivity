@@ -61,6 +61,20 @@ def build_user_message(fragments: list[dict], question: str,
     return "Фрагменты базы знаний:\n\n" + "\n\n".join(blocks) + tail
 
 
+def _history_for_model(history: list[dict]) -> list[dict]:
+    """История из лички может заканчиваться вопросом БЕЗ ответа: бот отвечает
+    в тредах, а контекст собирается из основной ленты. Без заглушки такой
+    висящий вопрос склеился бы (_merge_history) в ОДНО сообщение с полезной
+    нагрузкой текущего вопроса — и модель путала, о чём её спрашивают
+    (реальный случай: спросили про Вануату, ответила «вы спрашиваете про
+    Грецию»). Заглушка правдива: на тот вопрос действительно отвечено в треде."""
+    hist = list(history[-10:])
+    if hist and hist[-1]["role"] == "user":
+        hist.append({"role": "assistant",
+                     "text": "(я ответил на этот вопрос в отдельном треде)"})
+    return hist
+
+
 def _merge_history(history: list[dict]) -> list[dict]:
     """Claude требует строгого чередования user/assistant и старта с user."""
     merged: list[dict] = []
@@ -115,7 +129,7 @@ def smart_refusal(question: str, history: list[dict], hint: str | None = None) -
     text = _REFUSAL_FALLBACK
     if history:
         try:
-            msgs = _merge_history(history + [{
+            msgs = _merge_history(_history_for_model(history) + [{
                 "role": "user",
                 "text": f"Вопрос сотрудника (в базе знаний по нему ничего не нашлось): {question}",
             }])
@@ -134,8 +148,9 @@ def smart_refusal(question: str, history: list[dict], hint: str | None = None) -
 def answer(question: str, fragments: list[dict], history: list[dict],
            resolved: str | None = None) -> str:
     msgs = _merge_history(
-        history + [{"role": "user",
-                    "text": build_user_message(fragments, question, resolved)}])
+        _history_for_model(history)
+        + [{"role": "user",
+            "text": build_user_message(fragments, question, resolved)}])
     resp = _anthropic().messages.create(
         model=config.ANSWER_MODEL, max_tokens=1600,
         system=_SYSTEM, messages=msgs)

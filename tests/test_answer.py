@@ -119,3 +119,23 @@ def test_history_merged_and_alternating():
 def test_history_cannot_start_with_assistant():
     merged = _merge_history([{"role": "assistant", "text": "привет"}])
     assert merged == []
+
+
+def test_dangling_user_history_gets_thread_placeholder():
+    # вопрос из лички, отвеченный в треде, не должен склеиваться
+    # с полезной нагрузкой текущего вопроса (кейс «Греция vs Вануату»)
+    from answer import _history_for_model
+    hist = _history_for_model([{"role": "user", "text": "вопрос про Грецию"}])
+    assert [m["role"] for m in hist] == ["user", "assistant"]
+    assert "треде" in hist[-1]["text"]
+
+
+def test_history_ending_with_assistant_unchanged():
+    from answer import _history_for_model
+    src = [{"role": "user", "text": "а"}, {"role": "assistant", "text": "б"}]
+    assert _history_for_model(src) == src
+
+
+def test_history_empty_unchanged():
+    from answer import _history_for_model
+    assert _history_for_model([]) == []
