@@ -180,6 +180,36 @@ def build_hint(fragment: dict) -> str:
             + (f", раздел «{section}»" if section else ""))
 
 
+def format_rule_blocks(fragments: list[dict], rows: list[dict],
+                       limit: int = 5) -> str | None:
+    """Собирает блоки «правил ассистента» для страниц, чьи фрагменты участвуют
+    в ответе. Порядок — по числу фрагментов страницы (кто ведёт ответ, тот и
+    первый), потолок limit блоков. Страницы без правил пропускаются."""
+    counts: dict[str, int] = {}
+    for f in fragments:
+        pid = f.get("page_id")
+        if pid:
+            counts[pid] = counts.get(pid, 0) + 1
+    by_page = {r["page_id"]: r for r in rows if r.get("rules", "").strip()}
+    ordered = sorted((p for p in by_page if p in counts),
+                     key=lambda p: counts[p], reverse=True)[:limit]
+    blocks = [f"[{by_page[p]['country']} — {by_page[p]['program']}]\n{by_page[p]['rules']}"
+              for p in ordered]
+    return "\n\n".join(blocks) if blocks else None
+
+
+def rules_text_for(fragments: list[dict]) -> str | None:
+    """Правила ассистента для ответа: точная привязка к страницам фрагментов.
+    Любой сбой (нет таблицы и т.п.) — просто отвечаем без правил."""
+    try:
+        page_ids = list({f["page_id"] for f in fragments if f.get("page_id")})
+        if not page_ids:
+            return None
+        return format_rule_blocks(fragments, db.get_program_rules_by_pages(page_ids))
+    except Exception:
+        return None
+
+
 def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[str], str, str, str | None]:
     """→ (фрагменты, переформулированный запрос, распознанные страны, тема,
     intent, подсказка «почти попал» или None)."""

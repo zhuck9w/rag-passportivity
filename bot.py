@@ -11,7 +11,7 @@ from slack_sdk import WebClient
 import config
 import db
 from answer import about_text, answer, pick_smalltalk_reply, smart_refusal
-from retrieval import retrieve
+from retrieval import retrieve, rules_text_for
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(message)s")
@@ -163,17 +163,11 @@ def handle_question(event, say) -> None:
             return
         rules = None
         if countries and len(countries) <= 3:
-            # «Правила ассистента» программ запроса → в системный промпт.
-            # Обзорный режим (стран из survey много) правил не получает.
-            # Сбой (таблицы ещё нет и т.п.) не должен ломать ответ.
-            try:
-                rows = db.get_program_rules(countries)
-            except Exception as e:
-                log.warning("не удалось получить правила ассистента: %s", e)
-                rows = []
-            if rows:
-                rules = "\n\n".join(f"[{r['country']} — {r['program']}]\n{r['rules']}"
-                                    for r in rows)
+            # «Правила ассистента» — только страниц, чьи фрагменты реально
+            # участвуют в ответе: у страны бывает несколько листов, и правила
+            # разных программ не должны наслаиваться. Обзорный режим правил
+            # не получает; сбой получения правил не ломает ответ.
+            rules = rules_text_for(fragments)
         say(text=answer(question, fragments, history, resolved=query, rules=rules),
             thread_ts=thread_ts)
     except Exception:

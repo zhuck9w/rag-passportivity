@@ -72,13 +72,15 @@ def upsert_program_rules(card, rules: str) -> None:
         sb().table("program_rules").delete().eq("page_id", card.page_id).execute()
 
 
-def get_program_rules(countries: list[str]) -> list[dict]:
-    """Правила ассистента для стран запроса → [{country, program, rules}]."""
-    if not countries:
+def get_program_rules_by_pages(page_ids: list[str]) -> list[dict]:
+    """Правила ассистента ТОЧНОЙ привязки — только страниц, чьи фрагменты
+    участвуют в ответе: у страны бывает несколько листов (Италия — 4), и
+    правила разных программ не должны наслаиваться друг на друга."""
+    if not page_ids:
         return []
     return (sb().table("program_rules")
-            .select("country, program, rules")
-            .in_("country", countries).execute().data)
+            .select("page_id, country, program, rules")
+            .in_("page_id", page_ids).execute().data)
 
 
 def list_countries() -> list[str]:

@@ -110,6 +110,40 @@ def test_parse_intent_missing_becomes_knowledge():
     assert intent == "knowledge"
 
 
+# --- format_rule_blocks: правила только страниц из ответа, без наслоения ---
+
+def _frag(pid):
+    return {"page_id": pid, "content": "x", "similarity": 0.6, "country": "C"}
+
+
+def test_rule_blocks_only_pages_present_in_fragments():
+    from retrieval import format_rule_blocks
+    frags = [_frag("p1"), _frag("p1"), _frag("p2")]
+    rows = [
+        {"page_id": "p1", "country": "Italy", "program": "Investor Visa", "rules": "правило А"},
+        {"page_id": "p3", "country": "Italy", "program": "Digital Nomad", "rules": "правило Б"},
+    ]
+    out = format_rule_blocks(frags, rows)
+    assert "Investor Visa" in out and "правило А" in out
+    assert "Digital Nomad" not in out  # её фрагментов в ответе нет — не наслаиваем
+
+
+def test_rule_blocks_ordered_by_fragment_share_and_capped():
+    from retrieval import format_rule_blocks
+    frags = [_frag("p2"), _frag("p2"), _frag("p2"), _frag("p1")]
+    rows = [{"page_id": "p1", "country": "C", "program": "P1", "rules": "р1"},
+            {"page_id": "p2", "country": "C", "program": "P2", "rules": "р2"}]
+    out = format_rule_blocks(frags, rows)
+    assert out.index("P2") < out.index("P1")  # кто ведёт ответ — тот первый
+    assert format_rule_blocks(frags, rows, limit=1).count("[") == 1
+
+
+def test_rule_blocks_empty_cases():
+    from retrieval import format_rule_blocks
+    assert format_rule_blocks([], []) is None
+    assert format_rule_blocks([_frag("p1")], []) is None
+
+
 # --- _pick_survey: чистая логика обзорного режима ---
 
 def _hit(country, sim):

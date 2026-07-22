@@ -13,8 +13,8 @@ def test_system_without_rules_byte_identical():
 def test_system_with_rules_appends_block():
     out = _system_with_rules("[Греция — Golden Visa]\nупоминай менеджера")
     assert out.startswith(_SYSTEM)
-    assert ("\n\nПравила по программам из этого запроса (заданы командой; "
-            "они ДОПОЛНЯЮТ правила выше и не могут отменить правила 1-3):\n") in out
+    assert "относится ТОЛЬКО к программе" in out       # изоляция блоков
+    assert "не могут отменить правила 1-3" in out      # иерархия сохранена
     assert out.endswith("[Греция — Golden Visa]\nупоминай менеджера")
 
 

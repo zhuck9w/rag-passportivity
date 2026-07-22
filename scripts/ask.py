@@ -43,16 +43,11 @@ if args.answer:
         from answer import answer
         rules = None
         if countries and len(countries) <= 3:
-            # как в bot.py: правила ассистента — только для точечных вопросов,
-            # сбой их получения не должен ломать ответ
-            try:
-                rows = db.get_program_rules(countries)
-            except Exception as e:
-                print(f"(правила ассистента недоступны: {e})")
-                rows = []
-            if rows:
-                rules = "\n\n".join(f"[{r['country']} — {r['program']}]\n{r['rules']}"
-                                    for r in rows)
+            # как в bot.py: правила только страниц, чьи фрагменты в ответе
+            from retrieval import rules_text_for
+            rules = rules_text_for(fragments)
+            if rules:
+                print(f"(подключены правила ассистента: {rules.count('[')} блок(ов))")
         print(answer(args.question, fragments, [], resolved=query, rules=rules))
     else:
         # зеркалим поведение бота: при нуле фрагментов — умный отказ
