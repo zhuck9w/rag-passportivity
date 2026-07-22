@@ -82,6 +82,18 @@ create table if not exists query_log (
 );
 alter table query_log enable row level security;
 
+-- «Правила ассистента» программ: раздел страницы Notion с этим заголовком
+-- не индексируется как знание, а подшивается в системный промпт ответчика
+-- при вопросах по этой стране.
+create table if not exists program_rules (
+  page_id text primary key,
+  country text not null default '',
+  program text not null default '',
+  rules text not null default '',
+  updated_at text not null default ''
+);
+alter table program_rules enable row level security;
+
 -- Журнал запусков синхронизации: когда обновлялись знания и сколько.
 create table if not exists sync_log (
   id bigint generated always as identity primary key,

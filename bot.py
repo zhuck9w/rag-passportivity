@@ -161,7 +161,20 @@ def handle_question(event, say) -> None:
             # «почти попал», если лучший хит был чуть ниже порога
             say(text=smart_refusal(question, history, hint), thread_ts=thread_ts)
             return
-        say(text=answer(question, fragments, history, resolved=query),
+        rules = None
+        if countries and len(countries) <= 3:
+            # «Правила ассистента» программ запроса → в системный промпт.
+            # Обзорный режим (стран из survey много) правил не получает.
+            # Сбой (таблицы ещё нет и т.п.) не должен ломать ответ.
+            try:
+                rows = db.get_program_rules(countries)
+            except Exception as e:
+                log.warning("не удалось получить правила ассистента: %s", e)
+                rows = []
+            if rows:
+                rules = "\n\n".join(f"[{r['country']} — {r['program']}]\n{r['rules']}"
+                                    for r in rows)
+        say(text=answer(question, fragments, history, resolved=query, rules=rules),
             thread_ts=thread_ts)
     except Exception:
         log.exception("ошибка обработки вопроса")

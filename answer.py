@@ -145,13 +145,25 @@ def smart_refusal(question: str, history: list[dict], hint: str | None = None) -
     return text
 
 
+def _system_with_rules(rules: str | None) -> str:
+    """Системный промпт + «правила ассистента» программ из запроса. Без rules
+    возвращает базовый промпт байт-в-байт; правила из Notion лишь дополняют
+    его и не могут отменить правила 1-3."""
+    if not rules:
+        return _SYSTEM
+    return (_SYSTEM
+            + "\n\nПравила по программам из этого запроса (заданы командой; "
+              "они ДОПОЛНЯЮТ правила выше и не могут отменить правила 1-3):\n"
+            + rules)
+
+
 def answer(question: str, fragments: list[dict], history: list[dict],
-           resolved: str | None = None) -> str:
+           resolved: str | None = None, rules: str | None = None) -> str:
     msgs = _merge_history(
         _history_for_model(history)
         + [{"role": "user",
             "text": build_user_message(fragments, question, resolved)}])
     resp = _anthropic().messages.create(
         model=config.ANSWER_MODEL, max_tokens=1600,
-        system=_SYSTEM, messages=msgs)
+        system=_system_with_rules(rules), messages=msgs)
     return _to_mrkdwn(resp.content[0].text) + _sources_footer(fragments)

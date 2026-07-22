@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import config
 import db
 import notion_reader as nr
-from chunker import chunk_page
+from chunker import chunk_page, split_rules
 from embedder import embed_texts
 
 
@@ -61,9 +61,17 @@ def run(full: bool, dry: bool) -> None:
     for c in changed:
         try:
             markdown = nr.fetch_page_markdown(c.page_id)
-            chunks = chunk_page(c, markdown)
+            rules, content = split_rules(markdown)
+            chunks = chunk_page(c, content)
             embeddings = embed_texts([ch.content for ch in chunks])
             db.replace_page_chunks(c, chunks, embeddings)
+            try:
+                # «Правила ассистента» — в отдельную таблицу, не в индекс.
+                # Сбой (таблицы ещё нет и т.п.) чанки не откатывает — как log_sync.
+                db.upsert_program_rules(c, rules)
+            except Exception as e:
+                print(f"  предупреждение: не удалось обновить правила ассистента "
+                      f"({c.country} — {c.program}): {e}")
             chunks_written += len(chunks)
             programs.append(f"{c.country} — {c.program}")
             print(f"  ok {c.country} — {c.program}: {len(chunks)} чанков")

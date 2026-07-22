@@ -1,6 +1,7 @@
 """Markdown страницы → чанки. Каждый чанк начинается с «паспорта»:
 [Страна — Программа | Раздел: ... | Статус: ..., обновлено ...] —
 это главный механизм, не дающий перепутать похожие программы."""
+import re
 from dataclasses import dataclass
 
 import config
@@ -39,6 +40,41 @@ def split_sections(markdown: str) -> list[tuple[str, str]]:
     if "\n".join(buf).strip():
         sections.append((title, "\n".join(buf).strip()))
     return sections
+
+
+_RULES_TITLE = "правила ассистента"
+
+
+def _norm_heading(title: str) -> str:
+    """Нормализация заголовка для сравнения: убрать эмодзи и прочие не-буквы
+    по краям, схлопнуть пробелы, нижний регистр."""
+    t = re.sub(r"^\W+|\W+$", "", title)
+    return re.sub(r"\s+", " ", t).lower()
+
+
+def split_rules(markdown: str) -> tuple[str, str]:
+    """Вырезает раздел(ы) «Правила ассистента» → (rules_text, content_markdown).
+    Раздел = секция (границы — как у split_sections: любая строка «#…»), чей
+    заголовок после нормализации равен «правила ассистента»; таких секций может
+    быть несколько — склеиваются. Правила уходят в системный промпт ответчика,
+    content — в индексацию. Content собирается из исходных строк markdown
+    (split_sections теряет уровень «##»), поэтому остальные разделы сохраняют
+    заголовки и порядок байт-в-байт."""
+    rules_blocks: list[list[str]] = []
+    content_lines: list[str] = []
+    in_rules = False
+    for line in markdown.splitlines():
+        if line.startswith("#"):
+            in_rules = _norm_heading(line.lstrip("#").strip()) == _RULES_TITLE
+            if in_rules:
+                rules_blocks.append([])
+                continue
+        if in_rules:
+            rules_blocks[-1].append(line)
+        else:
+            content_lines.append(line)
+    rules = "\n\n".join(b for b in ("\n".join(bl).strip() for bl in rules_blocks) if b)
+    return rules, "\n".join(content_lines)
 
 
 def _units(text: str) -> list[str]:

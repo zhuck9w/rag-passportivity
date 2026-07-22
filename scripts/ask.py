@@ -39,8 +39,21 @@ if hint:
 if args.answer:
     print("\n--- Ответ ---")
     if fragments:
+        import db
         from answer import answer
-        print(answer(args.question, fragments, [], resolved=query))
+        rules = None
+        if countries and len(countries) <= 3:
+            # как в bot.py: правила ассистента — только для точечных вопросов,
+            # сбой их получения не должен ломать ответ
+            try:
+                rows = db.get_program_rules(countries)
+            except Exception as e:
+                print(f"(правила ассистента недоступны: {e})")
+                rows = []
+            if rows:
+                rules = "\n\n".join(f"[{r['country']} — {r['program']}]\n{r['rules']}"
+                                    for r in rows)
+        print(answer(args.question, fragments, [], resolved=query, rules=rules))
     else:
         # зеркалим поведение бота: при нуле фрагментов — умный отказ
         from answer import smart_refusal

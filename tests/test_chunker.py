@@ -1,4 +1,4 @@
-from chunker import build_passport, split_sections, split_long, chunk_page
+from chunker import build_passport, split_rules, split_sections, split_long, chunk_page
 from notion_reader import Card
 
 CARD = Card(page_id="p1", program="Golden Visa", country="Мальта",
@@ -48,6 +48,48 @@ def test_big_table_split_repeats_header():
     parts = split_long(header + "\n" + rows, max_chars=400, overlap=50)
     assert len(parts) > 1
     assert all(p.splitlines()[0] == "| Страна | Сумма |" for p in parts)
+
+
+# --- split_rules: раздел «Правила ассистента» уходит из индекса ---
+
+def test_split_rules_absent_rules_empty_content_untouched():
+    md = "вступление\n## Требования\nтекст а\n## Сроки\nтекст б"
+    rules, content = split_rules(md)
+    assert rules == ""
+    assert content == md  # байт-в-байт
+
+
+def test_split_rules_emoji_case_extra_spaces():
+    md = "##  🤖  ПРАВИЛА   АССИСТЕНТА  \nвсегда упоминай менеджера\n## Сроки\nтекст"
+    rules, content = split_rules(md)
+    assert rules == "всегда упоминай менеджера"
+    assert "менеджера" not in content
+    assert "## Сроки" in content and "текст" in content
+
+
+def test_split_rules_middle_keeps_before_and_after_with_headers():
+    md = ("вступление\n## Требования\nтекст а\n"
+          "## Правила ассистента\nправило 1\nправило 2\n"
+          "## Сроки\nтекст б")
+    rules, content = split_rules(md)
+    assert rules == "правило 1\nправило 2"
+    assert content == "вступление\n## Требования\nтекст а\n## Сроки\nтекст б"
+
+
+def test_split_rules_two_sections_glued():
+    md = ("## Правила ассистента\nправило 1\n"
+          "## Сроки\nтекст\n"
+          "### 🤖 правила ассистента\nправило 2")
+    rules, content = split_rules(md)
+    assert rules == "правило 1\n\nправило 2"
+    assert content == "## Сроки\nтекст"
+
+
+def test_split_rules_similar_heading_not_cut():
+    md = "## Правила ассистента по срокам\nэто знание, не правило"
+    rules, content = split_rules(md)
+    assert rules == ""
+    assert content == md
 
 
 def test_chunk_page_passports_everywhere():

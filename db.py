@@ -51,6 +51,34 @@ def delete_pages(page_ids: list[str]) -> None:
     for pid in page_ids:
         sb().table("chunks").delete().eq("page_id", pid).execute()
         sb().table("sync_state").delete().eq("page_id", pid).execute()
+        try:  # таблицы program_rules может ещё не быть — чанки чистим всё равно
+            sb().table("program_rules").delete().eq("page_id", pid).execute()
+        except Exception as e:
+            print(f"  предупреждение: не удалось очистить program_rules для {pid}: {e}")
+
+
+def upsert_program_rules(card, rules: str) -> None:
+    """«Правила ассистента» страницы: непустые — сохраняем, пустые — удаляем
+    (раздел убрали из Notion → правило исчезает)."""
+    if rules.strip():
+        sb().table("program_rules").upsert({
+            "page_id": card.page_id,
+            "country": card.country,
+            "program": card.program,
+            "rules": rules,
+            "updated_at": card.last_edited,
+        }).execute()
+    else:
+        sb().table("program_rules").delete().eq("page_id", card.page_id).execute()
+
+
+def get_program_rules(countries: list[str]) -> list[dict]:
+    """Правила ассистента для стран запроса → [{country, program, rules}]."""
+    if not countries:
+        return []
+    return (sb().table("program_rules")
+            .select("country, program, rules")
+            .in_("country", countries).execute().data)
 
 
 def list_countries() -> list[str]:

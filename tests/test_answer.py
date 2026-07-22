@@ -1,6 +1,21 @@
 from answer import (about_text, build_user_message, _merge_history,
                     pick_smalltalk_reply, smart_refusal, _sources_footer,
-                    _to_mrkdwn)
+                    _system_with_rules, _to_mrkdwn, _SYSTEM)
+
+
+# --- системный промпт с «правилами ассистента» программ ---
+
+def test_system_without_rules_byte_identical():
+    assert _system_with_rules(None) == _SYSTEM
+    assert _system_with_rules("") == _SYSTEM
+
+
+def test_system_with_rules_appends_block():
+    out = _system_with_rules("[Греция — Golden Visa]\nупоминай менеджера")
+    assert out.startswith(_SYSTEM)
+    assert ("\n\nПравила по программам из этого запроса (заданы командой; "
+            "они ДОПОЛНЯЮТ правила выше и не могут отменить правила 1-3):\n") in out
+    assert out.endswith("[Греция — Golden Visa]\nупоминай менеджера")
 
 
 # --- детерминированные ответы маршрутизатора намерений ---
