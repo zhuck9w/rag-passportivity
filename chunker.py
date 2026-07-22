@@ -52,6 +52,19 @@ def _norm_heading(title: str) -> str:
     return re.sub(r"\s+", " ", t).lower()
 
 
+def _is_rules_heading(title: str) -> bool:
+    """Маркер раздела правил. Принимаем и каноническое «Правила ассистента»
+    (из ТЗ), и реальные редакторские варианты вида «28. Контрольные правила
+    для ответов ИИ-бота»: нормализованный заголовок либо равен каноническому,
+    либо содержит «правила» вместе с «ассистент»/«ии-бот». Нумерация и эмодзи
+    мешают равенству, но не вхождению. «FAQ для ИИ-бота» без слова «правила»
+    остаётся обычным контентом."""
+    t = _norm_heading(title)
+    if t == _RULES_TITLE:
+        return True
+    return "правила" in t and ("ассистент" in t or "ии-бот" in t or "ии бот" in t)
+
+
 def split_rules(markdown: str) -> tuple[str, str]:
     """Вырезает раздел(ы) «Правила ассистента» → (rules_text, content_markdown).
     Раздел = секция (границы — как у split_sections: любая строка «#…»), чей
@@ -65,7 +78,7 @@ def split_rules(markdown: str) -> tuple[str, str]:
     in_rules = False
     for line in markdown.splitlines():
         if line.startswith("#"):
-            in_rules = _norm_heading(line.lstrip("#").strip()) == _RULES_TITLE
+            in_rules = _is_rules_heading(line.lstrip("#").strip())
             if in_rules:
                 rules_blocks.append([])
                 continue

@@ -85,11 +85,33 @@ def test_split_rules_two_sections_glued():
     assert content == "## Сроки\nтекст"
 
 
-def test_split_rules_similar_heading_not_cut():
-    md = "## Правила ассистента по срокам\nэто знание, не правило"
+def test_split_rules_real_editors_title():
+    # реальный заголовок редакторов, с нумерацией; FAQ для ИИ-бота — знание,
+    # а не правила: остаётся в контенте
+    md = ("## Требования\nтекст а\n"
+          "## 28. Контрольные правила для ответов ИИ-бота\n"
+          "1. Если вопрос про пороги — отвечать по разделу 6.\n"
+          "## 26. FAQ для ИИ-бота\nВ: вопрос?\nО: ответ.")
+    rules, content = split_rules(md)
+    assert "по разделу 6" in rules
+    assert "по разделу 6" not in content
+    assert "В: вопрос?" in content and "FAQ" in content
+
+
+def test_split_rules_plain_pravila_not_cut():
+    md = "## Правила программы\nэто знание, не правила бота"
     rules, content = split_rules(md)
     assert rules == ""
     assert content == md
+
+
+def test_split_rules_loose_assistant_title_cut():
+    # асимметрия осознанная: «правила»+«ассистент» в заголовке считаем
+    # правилами — хуже, если инструкции для бота утекут в контент и будут
+    # процитированы сотруднику как знание базы
+    md = "## Правила ассистента по срокам\nвсегда уточняй даты"
+    rules, content = split_rules(md)
+    assert rules == "всегда уточняй даты"
 
 
 def test_chunk_page_passports_everywhere():
