@@ -13,11 +13,32 @@ from chunker import chunk_page
 from embedder import embed_texts
 
 
+def keep_labeled(cards: list) -> tuple[list, int]:
+    """Правило: страница без лейбла страны для бота не существует.
+    Снять лейбл в Notion = вывести страницу из индекса (чанки вычистятся
+    как «исчезнувшие»); черновики без страны не индексируются вовсе."""
+    labeled = [c for c in cards if c.country]
+    return labeled, len(cards) - len(labeled)
+
+
+def too_many_unlabeled(total: int, skipped: int) -> bool:
+    """Предохранитель: массовая потеря лейблов — это не «вывели страницы»,
+    а смена структуры или переименование свойства Country. Не удаляем."""
+    return skipped >= max(5, total // 4)
+
+
 def run(full: bool, dry: bool) -> None:
     config.require("NOTION_TOKEN", "NOTION_KB_PAGE_ID", "VOYAGE_API_KEY",
                    "SUPABASE_URL", "SUPABASE_SECRET_KEY")
     started_at = datetime.now(timezone.utc).isoformat()
-    cards = nr.list_cards()
+    raw_cards = nr.list_cards()
+    cards, skipped = keep_labeled(raw_cards)
+    if skipped:
+        print(f"Пропущено карточек без лейбла страны: {skipped} — бот их не индексирует")
+        if too_many_unlabeled(len(raw_cards), skipped):
+            raise SystemExit("Слишком много карточек без страны — похоже на смену "
+                             "структуры или переименование свойства Country. "
+                             "Ничего не удаляю.")
     if not cards:
         raise SystemExit("Из Notion пришло 0 карточек — изменилась структура "
                          "страницы или отвалился доступ? Ничего не удаляю.")
