@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 sync.log
 письмо-IT-директору.md
+tools/
