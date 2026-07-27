@@ -140,3 +140,5 @@ $env:PYTHONUTF8='1'
 | `REWRITE_MODEL` | модель переформулировщика | Sonnet 5 (дефолт из config.py). **Откат на Haiku без деплоя:** в `.env` на сервере добавить `REWRITE_MODEL=claude-haiku-4-5-20251001` + `sudo systemctl restart kb-bot` |
 | `TOP_K` | сколько фрагментов даём модели | 8 |
 | `MIN_SIMILARITY` | порог отсечения нерелевантного | 0.55 |
+| `ANSWER_MAX_TOKENS` | потолок длины точечного ответа | 1600 |
+| `SURVEY_ANSWER_MAX_TOKENS` | потолок длины обзорного ответа (там десятки стран) | 3500 |

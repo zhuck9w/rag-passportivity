@@ -210,19 +210,24 @@ def rules_text_for(fragments: list[dict]) -> str | None:
         return None
 
 
-def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[str], str, str, str | None]:
+def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[str], str, str, str | None, bool]:
     """→ (фрагменты, переформулированный запрос, распознанные страны, тема,
-    intent, подсказка «почти попал» или None)."""
+    intent, подсказка «почти попал» или None, обзорный ли ответ).
+
+    Последний флаг — именно про РЕЖИМ ОТВЕТА, а не про вердикт
+    переформулировщика: true только когда выдачу собрала обзорная ветка и
+    ответ должен перебрать десятки стран. «Сравни Мальту и Кипр» с survey=true
+    от модели идёт обычной ветвью по странам и флага не получает."""
     countries = db.list_countries()
     query, matched, unknown, topic, survey, intent = rewrite_question(question, history, countries)
     if intent in ("meta", "smalltalk"):
         # приветствие или вопрос про самого бота: ответ соберёт код
         # детерминированно, поиск (и Voyage-вызов) не нужен вовсе
-        return [], query, [], topic, intent, None
+        return [], query, [], topic, intent, None, False
     if unknown and not matched:
         # спрашивают про страну, которой нет в базе — честное «не нашёл»,
         # Claude не вызываем и не даём ему фрагменты про другие страны
-        return [], query, [], topic, "knowledge", None
+        return [], query, [], topic, "knowledge", None, False
     vec = embed_query(query)
     if len(matched) >= 2:
         # сравнение стран: набираем фрагменты по каждой, чтобы одна страна
@@ -239,7 +244,7 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
         for c in countries:
             hits += db.search(vec, c, config.SURVEY_PER_COUNTRY)
         fragments, hit_countries = _pick_survey(hits)
-        return _group_by_country(fragments), query, hit_countries, topic, "knowledge", None
+        return _group_by_country(fragments), query, hit_countries, topic, "knowledge", None, True
     else:
         fragments = db.search(vec, matched[0] if matched else None)
     best = max(fragments, key=lambda f: f["similarity"], default=None)
@@ -261,4 +266,4 @@ def retrieve(question: str, history: list[dict]) -> tuple[list[dict], str, list[
         for c in matched:
             anchors += db.page_anchors(c)
         fragments = _with_anchors(fragments, anchors)
-    return fragments, query, matched, topic, "knowledge", hint
+    return fragments, query, matched, topic, "knowledge", hint, False

@@ -44,8 +44,40 @@ def _anthropic() -> anthropic.Anthropic:
     return _client
 
 
+def survey_checklist(fragments: list[dict]) -> str:
+    """Явный нумерованный список стран, представленных во фрагментах.
+
+    Без него модель обязана вывести набор стран сама, вычитав его из четырёх
+    десятков паспортных строк, — и самопроверка «всех ли я перебрал» ей просто
+    не с чем делать. На практике это ломается: 2026-07-27 на вопрос «какие
+    программы гражданств доступны россиянам» в промпт ушли 32 страны, а в
+    ответ попали 9; Вануату выпал, хотя его фрагмент «Список запрещённых стран»
+    лежал в промпте и Россия в том списке не значилась. Готовый нумерованный
+    перечень превращает «извлеки и перебери» в «пройди по строкам».
+
+    Порядок — как страны идут во фрагментах (после _group_by_country это и есть
+    порядок блоков в промпте), чтобы модель шла по списку и по промпту синхронно."""
+    names: list[str] = []
+    for f in fragments:
+        country = (f.get("country") or "").strip()
+        if country and country not in names:
+            names.append(country)
+    if not names:
+        return ""
+    listing = "\n".join(f"{i}. {c}" for i, c in enumerate(names, 1))
+    return (f"\n\nПОЛНЫЙ список стран, материалы которых даны выше ({len(names)}):\n"
+            f"{listing}\n"
+            "Пройди по этому списку сверху вниз и по КАЖДОЙ строке прими решение "
+            "по алгоритму правила 4: (а) страна идёт в основной список, (б) страна "
+            "идёт в блок оговорок или существенных ограничений, (в) страна не "
+            "упоминается. Список нужен, чтобы ни одна страна не осталась "
+            "нерассмотренной. В ОТВЕТ выноси только категории (а) и (б); страны "
+            "категории (в) не перечисляй и не описывай — ни отдельным списком, "
+            "ни строкой «остальные не подходят».")
+
+
 def build_user_message(fragments: list[dict], question: str,
-                       resolved: str | None = None) -> str:
+                       resolved: str | None = None, survey: bool = False) -> str:
     blocks = [f"--- Фрагмент {i} ---\n{f['content']}"
               for i, f in enumerate(fragments, 1)]
     tail = f"\n\nВопрос сотрудника: {question}"
@@ -58,6 +90,10 @@ def build_user_message(fragments: list[dict], question: str,
                  "\nЕсли фрагменты расходятся с формулировкой подсказки — отвечай на"
                  " исходный вопрос по фрагментам и не заостряй внимание на расхождении."
                  "\nЯзык ответа — как в исходном вопросе сотрудника.")
+    if survey:
+        # чек-лист идёт последним: это операционная инструкция, и выполняется
+        # она заметно лучше, когда стоит вплотную к началу генерации
+        tail += survey_checklist(fragments)
     return "Фрагменты базы знаний:\n\n" + "\n\n".join(blocks) + tail
 
 
@@ -161,12 +197,15 @@ def _system_with_rules(rules: str | None) -> str:
 
 
 def answer(question: str, fragments: list[dict], history: list[dict],
-           resolved: str | None = None, rules: str | None = None) -> str:
+           resolved: str | None = None, rules: str | None = None,
+           survey: bool = False) -> str:
     msgs = _merge_history(
         _history_for_model(history)
         + [{"role": "user",
-            "text": build_user_message(fragments, question, resolved)}])
+            "text": build_user_message(fragments, question, resolved, survey)}])
     resp = _anthropic().messages.create(
-        model=config.ANSWER_MODEL, max_tokens=1600,
+        model=config.ANSWER_MODEL,
+        max_tokens=(config.SURVEY_ANSWER_MAX_TOKENS if survey
+                    else config.ANSWER_MAX_TOKENS),
         system=_system_with_rules(rules), messages=msgs)
     return _to_mrkdwn(resp.content[0].text) + _sources_footer(fragments)

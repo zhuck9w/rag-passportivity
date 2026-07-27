@@ -129,9 +129,11 @@ def handle_question(event, say) -> None:
             history = _dm_history(channel, event["ts"])
         else:
             history = []
-        fragments, query, countries, topic, intent, hint = retrieve(question, history)
-        log.info("q=%r -> query=%r countries=%r topic=%r intent=%r fragments=%d hint=%r",
-                 question, query, countries, topic, intent, len(fragments), hint)
+        fragments, query, countries, topic, intent, hint, survey = retrieve(question, history)
+        log.info("q=%r -> query=%r countries=%r topic=%r intent=%r survey=%r "
+                 "fragments=%d hint=%r",
+                 question, query, countries, topic, intent, survey,
+                 len(fragments), hint)
         if intent == "smalltalk":
             # приветствие/благодарность: детерминированный ответ кода,
             # в журнал обращений не пишем — это не вопрос к базе
@@ -168,7 +170,8 @@ def handle_question(event, say) -> None:
             # разных программ не должны наслаиваться. Обзорный режим правил
             # не получает; сбой получения правил не ломает ответ.
             rules = rules_text_for(fragments)
-        say(text=answer(question, fragments, history, resolved=query, rules=rules),
+        say(text=answer(question, fragments, history, resolved=query,
+                        rules=rules, survey=survey),
             thread_ts=thread_ts)
     except Exception:
         log.exception("ошибка обработки вопроса")

@@ -14,8 +14,9 @@ parser.add_argument("--answer", action="store_true", help="сгенериров�
 args = parser.parse_args()
 
 config.require("SUPABASE_URL", "SUPABASE_SECRET_KEY", "VOYAGE_API_KEY", "ANTHROPIC_API_KEY")
-fragments, query, countries, topic, intent, hint = retrieve(args.question, history=[])
-print(f"Переформулировано: {query!r}\nСтраны: {countries}\nТема: {topic}\nIntent: {intent}")
+fragments, query, countries, topic, intent, hint, survey = retrieve(args.question, history=[])
+print(f"Переформулировано: {query!r}\nСтраны: {countries}\nТема: {topic}\n"
+      f"Intent: {intent}\nОбзорный режим: {survey}")
 
 if intent == "smalltalk":
     from answer import pick_smalltalk_reply
@@ -48,7 +49,8 @@ if args.answer:
             rules = rules_text_for(fragments)
             if rules:
                 print(f"(подключены правила ассистента: {rules.count('[')} блок(ов))")
-        print(answer(args.question, fragments, [], resolved=query, rules=rules))
+        print(answer(args.question, fragments, [], resolved=query, rules=rules,
+                     survey=survey))
     else:
         # зеркалим поведение бота: при нуле фрагментов — умный отказ
         from answer import smart_refusal

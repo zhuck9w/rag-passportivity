@@ -1,6 +1,11 @@
 from answer import (about_text, build_user_message, _merge_history,
                     pick_smalltalk_reply, smart_refusal, _sources_footer,
-                    _system_with_rules, _to_mrkdwn, _SYSTEM)
+                    survey_checklist, _system_with_rules, _to_mrkdwn, _SYSTEM)
+
+
+def _frag(country: str, content: str = "текст") -> dict:
+    return {"content": content, "country": country, "program": "P",
+            "notion_url": f"https://n/{country}", "status": "Actual"}
 
 
 # --- системный промпт с «правилами ассистента» программ ---
@@ -121,6 +126,53 @@ def test_user_message_resolved_equal_to_question_not_duplicated():
     msg = build_user_message(frags, "Какой порог на Мальте?",
                              resolved="какой порог на мальте?")
     assert "понимается" not in msg
+
+
+# --- чек-лист стран обзорного ответа ---
+
+def test_survey_checklist_numbers_unique_countries_in_fragment_order():
+    frags = [_frag("Grenada"), _frag("Nauru"), _frag("Nauru"), _frag("Vanuatu")]
+    out = survey_checklist(frags)
+    assert "(3)" in out                    # дубль Nauru схлопнут, счёт честный
+    assert "1. Grenada" in out
+    assert "2. Nauru" in out
+    assert "3. Vanuatu" in out
+    assert out.index("1. Grenada") < out.index("3. Vanuatu")  # порядок как в промпте
+
+
+def test_survey_checklist_skips_fragments_without_country():
+    frags = [_frag("Malta"), {"content": "x"}, {"content": "y", "country": "  "}]
+    out = survey_checklist(frags)
+    assert "(1)" in out
+    assert "1. Malta" in out
+
+
+def test_survey_checklist_empty_without_countries():
+    assert survey_checklist([]) == ""
+    assert survey_checklist([{"content": "x"}]) == ""
+
+
+def test_user_message_survey_appends_checklist_last():
+    frags = [_frag("Vanuatu", "[Vanuatu] запрещённые страны: Иран, Ирак")]
+    msg = build_user_message(frags, "что доступно россиянам?", survey=True)
+    assert "ПОЛНЫЙ список стран" in msg
+    assert "1. Vanuatu" in msg
+    assert "ни одна страна не осталась" in msg       # перебрать — все
+    assert "категории (в) не перечисляй" in msg      # но выписывать — только (а) и (б)
+    # чек-лист стоит вплотную к генерации — после вопроса, а не перед фрагментами
+    assert msg.index("Вопрос сотрудника") < msg.index("ПОЛНЫЙ список стран")
+
+
+def test_user_message_survey_checklist_after_resolved_hint():
+    frags = [_frag("Malta")]
+    msg = build_user_message(frags, "а там?", resolved="что доступно на Мальте",
+                             survey=True)
+    assert msg.index("понимается") < msg.index("ПОЛНЫЙ список стран")
+
+
+def test_user_message_without_survey_has_no_checklist():
+    msg = build_user_message([_frag("Malta")], "какой порог?")
+    assert "ПОЛНЫЙ список стран" not in msg
 
 
 def test_history_merged_and_alternating():
