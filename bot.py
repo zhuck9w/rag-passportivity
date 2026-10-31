@@ -16,6 +16,11 @@ from retrieval import retrieve, rules_text_for
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("kb-bot")
+if not config.LOG_QUESTIONS:
+    # httpx пишет на INFO полный URL каждого запроса, а в GET лексического
+    # спасателя (db.find_by_term) лежат слова из вопроса — например, имя
+    # клиента латиницей. Без флага LOG_QUESTIONS эти строки не нужны.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 config.require("SLACKBOT_OAUTH", "SLACKBOT_APPLEVEL",
                "ANTHROPIC_API_KEY", "VOYAGE_API_KEY",
@@ -130,10 +135,16 @@ def handle_question(event, say) -> None:
         else:
             history = []
         fragments, query, countries, topic, intent, hint, survey = retrieve(question, history)
-        log.info("q=%r -> query=%r countries=%r topic=%r intent=%r survey=%r "
-                 "fragments=%d hint=%r",
-                 question, query, countries, topic, intent, survey,
-                 len(fragments), hint)
+        if config.LOG_QUESTIONS:
+            log.info("q=%r -> query=%r countries=%r topic=%r intent=%r survey=%r "
+                     "fragments=%d hint=%r",
+                     question, query, countries, topic, intent, survey,
+                     len(fragments), hint)
+        else:  # без текста вопроса и переформулировки — см. config.LOG_QUESTIONS
+            log.info("вопрос (%d симв.) -> countries=%r topic=%r intent=%r "
+                     "survey=%r fragments=%d hint=%r",
+                     len(question), countries, topic, intent, survey,
+                     len(fragments), hint)
         if intent == "smalltalk":
             # приветствие/благодарность: детерминированный ответ кода,
             # в журнал обращений не пишем — это не вопрос к базе

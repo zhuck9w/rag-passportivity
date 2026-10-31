@@ -41,6 +41,13 @@ ANSWER_MODEL = "claude-haiku-4-5-20251001"  # обкатка; не хватит 
 # модели на них параметр надо убрать (retrieval.py, answer.py).
 REWRITE_MODEL = os.getenv("REWRITE_MODEL", "").strip() or "claude-sonnet-5"
 
+# Текст вопросов в логе сервиса (journalctl). По умолчанию НЕ пишем: журнал
+# обращений в Supabase хранит только метаданные, и лог не должен тихо копить
+# то, что туда сознательно не пишется (в вопросах бывают имена клиентов).
+# Для разбора конкретного случая: LOG_QUESTIONS=true в .env + рестарт бота,
+# после разбора — обратно.
+LOG_QUESTIONS = os.getenv("LOG_QUESTIONS", "").strip().lower() in ("1", "true", "yes", "on")
+
 CHUNK_MAX_CHARS = 2000      # ~1-3 абзаца
 CHUNK_MIN_CHARS = 200       # мельче — приклеиваем к соседнему куску того же раздела
 CHUNK_OVERLAP_CHARS = 200   # перехлёст между чанками
