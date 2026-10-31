@@ -1,5 +1,15 @@
 # План внедрения: RAG-ассистент по базе знаний (Notion → Supabase → Claude → Slack)
 
+> **Статус на 2026-10-31: документ исторический, не обновляется.** Чекбоксы
+> заморожены на Task 9 (2026-07-09). Task 10 (деплой) выполнена — бот работает
+> на VPS, см. [DEPLOY.md](DEPLOY.md) и [OPS.md](OPS.md); Task 11 (приёмка) формально
+> не закрыта. Поведение с тех пор заметно ушло от плана: порог `MIN_SIMILARITY`
+> 0.55 (а не 0.25), переформулировщик — Sonnet (а не Haiku), в системном промпте
+> 12 правил, появились обзорный режим, маршрутизатор намерений, лексический
+> спасатель, якоря, «Правила ассистента» по программам, журналы `query_log` и
+> `sync_log`. **Источник истины — код, `config.py` и OPS.md**; этот план — только
+> история решений.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Цель:** Slack-бот, который отвечает на вопросы сотрудников по базе знаний Passportivity в Notion (страница «Консолидация данных RU»), строго на основе содержимого базы, со ссылками на первоисточник.
