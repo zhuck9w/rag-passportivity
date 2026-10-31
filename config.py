@@ -36,6 +36,9 @@ ANSWER_MODEL = "claude-haiku-4-5-20251001"  # обкатка; не хватит 
 # перевод разговорных формулировок заметно сильнее Haiku (~+$0.003-0.005 на
 # вопрос). ОТКАТ на Haiku без деплоя: строка REWRITE_MODEL=claude-haiku-4-5-20251001
 # в .env на сервере + systemctl restart kb-bot. Пусто в .env = дефолт ниже.
+# Вызовы этой модели идут с thinking={"type": "disabled"} — его принимают
+# Sonnet 5 и Haiku 4.5; Sonnet 5.5 / Opus 5.5 на нём отвечают 400, при смене
+# модели на них параметр надо убрать (retrieval.py, answer.py).
 REWRITE_MODEL = os.getenv("REWRITE_MODEL", "").strip() or "claude-sonnet-5"
 
 CHUNK_MAX_CHARS = 2000      # ~1-3 абзаца

@@ -75,10 +75,16 @@ def rewrite_question(question: str, history: list[dict],
               .replace("[[TOPICS]]", ", ".join(config.TOPICS))
               .replace("[[HISTORY]]", _fmt_history(history))
               .replace("[[QUESTION]]", question))
+    # Sonnet 5 без параметра thinking сам решает «подумать» — тогда первым
+    # блоком ответа идёт thinking, а не text (content[0].text падал), и
+    # размышления съедают лимит в 300 токенов. Для короткой классификации
+    # в JSON они не нужны — выключаем явно; текст собираем по типу блока.
     resp = _anthropic().messages.create(
         model=config.REWRITE_MODEL, max_tokens=300,
+        thinking={"type": "disabled"},
         messages=[{"role": "user", "content": prompt}])
-    return parse_rewrite(resp.content[0].text, question, countries)
+    raw = "".join(b.text for b in resp.content if b.type == "text")
+    return parse_rewrite(raw, question, countries)
 
 
 def _with_anchors(fragments: list[dict], anchors: list[dict]) -> list[dict]:

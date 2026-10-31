@@ -44,6 +44,13 @@ def _anthropic() -> anthropic.Anthropic:
     return _client
 
 
+def _text_of(resp) -> str:
+    """Текст ответа модели: только блоки type=text. Первым блоком может
+    прийти thinking (так ведут себя модели с размышлениями по умолчанию) —
+    content[0].text на нём падает."""
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
 def survey_checklist(fragments: list[dict]) -> str:
     """Явный нумерованный список стран, представленных во фрагментах.
 
@@ -176,8 +183,9 @@ def smart_refusal(question: str, history: list[dict], hint: str | None = None) -
             }])
             resp = _anthropic().messages.create(
                 model=config.REWRITE_MODEL, max_tokens=400,
+                thinking={"type": "disabled"},  # см. retrieval.rewrite_question
                 system=_REFUSAL_SYSTEM, messages=msgs)
-            text = _to_mrkdwn(resp.content[0].text)
+            text = _to_mrkdwn(_text_of(resp)) or _REFUSAL_FALLBACK
         except Exception:
             text = _REFUSAL_FALLBACK
     if hint:
@@ -213,4 +221,4 @@ def answer(question: str, fragments: list[dict], history: list[dict],
         max_tokens=(config.SURVEY_ANSWER_MAX_TOKENS if survey
                     else config.ANSWER_MAX_TOKENS),
         system=_system_with_rules(rules), messages=msgs)
-    return _to_mrkdwn(resp.content[0].text) + _sources_footer(fragments)
+    return _to_mrkdwn(_text_of(resp)) + _sources_footer(fragments)
