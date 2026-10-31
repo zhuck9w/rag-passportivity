@@ -27,7 +27,33 @@ def too_many_unlabeled(total: int, skipped: int) -> bool:
     return skipped >= max(5, total // 4)
 
 
-def run(full: bool, dry: bool) -> None:
+# Самая маленькая база в Notion — 3 карточки (на 2026-10-31: 8/21/12/3).
+# Если база пропала из обхода целиком (переехала на подстраницу — сканер туда
+# не спускается; заменена связанным представлением; у интеграции отозвали
+# доступ), все её страницы разом оказываются «исчезнувшими».
+MASS_DELETE_MIN = 3
+
+
+def too_many_gone(gone: int) -> bool:
+    """Предохранитель удаления: столько исчезнувших страниц за один прогон —
+    скорее потерянная база, чем удалённые программы. Удаление откладываем до
+    явного --allow-mass-delete, обновления при этом идут как обычно."""
+    return gone >= MASS_DELETE_MIN
+
+
+def split_gone(gone: list[str], unlabeled: set[str],
+               allow_mass_delete: bool) -> tuple[list[str], list[str]]:
+    """→ (удалить сейчас, отложить). Страницы, с которых сняли лейбл страны,
+    удаляются всегда: снятие лейбла — штатный способ вывести страницу из бота,
+    а массовую потерю лейблов уже ловит too_many_unlabeled. Под предохранитель
+    попадают только страницы, пропавшие из обхода Notion совсем."""
+    vanished = [p for p in gone if p not in unlabeled]
+    if allow_mass_delete or not too_many_gone(len(vanished)):
+        return gone, []
+    return [p for p in gone if p in unlabeled], vanished
+
+
+def run(full: bool, dry: bool, allow_mass_delete: bool = False) -> None:
     config.require("NOTION_TOKEN", "NOTION_KB_PAGE_ID", "VOYAGE_API_KEY",
                    "SUPABASE_URL", "SUPABASE_SECRET_KEY")
     started_at = datetime.now(timezone.utc).isoformat()
@@ -46,13 +72,22 @@ def run(full: bool, dry: bool) -> None:
     state = {} if full else known
     changed = [c for c in cards if state.get(c.page_id) != c.last_edited]
     gone = sorted(set(known) - {c.page_id for c in cards})
+    unlabeled = {c.page_id for c in raw_cards if not c.country}
+    # held — исчезнувшие, но удаление отложено предохранителем
+    gone, held = split_gone(gone, unlabeled, allow_mass_delete)
     print(f"Карточек в Notion: {len(cards)}; обновить: {len(changed)}; удалить: {len(gone)}")
+    if held:
+        print(f"ВНИМАНИЕ: ОТЛОЖЕНО удаление страниц: {len(held)} — они разом "
+              f"пропали из обхода Notion (похоже на перенос или потерю целой "
+              f"базы). Если удаление намеренное: sync.py --allow-mass-delete")
 
     if dry:
         for c in changed:
             print(f"  ~ {c.country} — {c.program}")
         for pid in gone:
             print(f"  - {pid}")
+        for pid in held:
+            print(f"  ! {pid} (удаление отложено)")
         return
 
     failed = 0
@@ -84,6 +119,9 @@ def run(full: bool, dry: bool) -> None:
         db.delete_pages(gone)
         programs += [f"удалена страница {pid}" for pid in gone]
         print(f"Удалены исчезнувшие страницы: {len(gone)}")
+    if held:
+        # пишем в журнал каждый прогон, пока ситуация не разрешена: это и есть сигнал
+        programs.append(f"ОТЛОЖЕНО удаление страниц: {len(held)} (предохранитель)")
 
     if programs:
         # журнал пишем только когда что-то реально поменялось; «жив ли cron»
@@ -97,9 +135,16 @@ def run(full: bool, dry: bool) -> None:
         except Exception as e:
             print(f"  предупреждение: не удалось записать журнал синхронизаций: {e}")
 
+    problems = []
     if failed:
-        raise SystemExit(f"Не проиндексировано страниц: {failed} — "
-                         f"будут повторены при следующем запуске")
+        problems.append(f"Не проиндексировано страниц: {failed} — "
+                        f"будут повторены при следующем запуске")
+    if held:
+        problems.append(f"ОТЛОЖЕНО удаление страниц: {len(held)} — проверьте "
+                        f"Notion; если удаление намеренное, запустите "
+                        f"sync.py --allow-mass-delete")
+    if problems:
+        raise SystemExit("\n".join(problems))
 
 
 if __name__ == "__main__":
@@ -108,5 +153,8 @@ if __name__ == "__main__":
                         help="переиндексировать все страницы, игнорируя состояние")
     parser.add_argument("--dry-run", action="store_true",
                         help="показать, что изменится, ничего не записывая")
+    parser.add_argument("--allow-mass-delete", action="store_true",
+                        help=f"удалить исчезнувшие страницы, даже если их "
+                             f"{MASS_DELETE_MIN} и больше (по умолчанию — отложить)")
     args = parser.parse_args()
-    run(full=args.full, dry=args.dry_run)
+    run(full=args.full, dry=args.dry_run, allow_mass_delete=args.allow_mass_delete)
