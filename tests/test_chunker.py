@@ -114,6 +114,32 @@ def test_split_rules_loose_assistant_title_cut():
     assert rules == "всегда уточняй даты"
 
 
+def test_split_rules_cost_tables_after_rules_stay_in_content():
+    # реальная раскладка страницы Греции: правила — последний раздел, за ним
+    # автоматический блок цен, чьи «### · EUR» заголовки notion_reader пишет
+    # без отступа. Таблицы — знание базы, они должны остаться в индексе.
+    md = ("## 27. Документы\nсписок\n"
+          "## 28. Контрольные правила для ответов ИИ-бота\n"
+          "1. Отвечать по разделу 6.\n"
+          "- Стоимость участия — ВНЖ в Греции за инвестиции [greece] (обновляется автоматически)\n"
+          "### Покупка недвижимости · EUR\n"
+          "| Статья | Заявитель |\n|---|---|\n| Инвестиция | 250 000 |\n"
+          "### Открытие депозита в греческом банке · EUR\n"
+          "| Статья | Заявитель |\n|---|---|\n| Депозит | 500 000 |")
+    rules, content = split_rules(md)
+    assert "по разделу 6" in rules
+    assert "250 000" not in rules and "500 000" not in rules
+    assert "### Покупка недвижимости · EUR" in content
+    assert "| Депозит | 500 000 |" in content
+
+
+def test_hash_without_space_is_text_not_heading():
+    md = "## Преимущества\n#1 в рейтинге паспортов\nещё текст"
+    assert split_sections(md) == [("Преимущества", "#1 в рейтинге паспортов\nещё текст")]
+    rules, content = split_rules("## Правила ассистента\n#1 правило\nвторое")
+    assert rules == "#1 правило\nвторое" and content == ""
+
+
 def test_chunk_page_passports_everywhere():
     md = "## Требования\n" + "т" * 3000
     chunks = chunk_page(CARD, md)

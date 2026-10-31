@@ -26,15 +26,21 @@ def build_passport(country: str, program: str, section: str,
     return "[" + " | ".join(parts) + "]"
 
 
+# Заголовок так, как его пишет notion_reader: решётки + пробел. Строка вида
+# «#1 в рейтинге» без пробела — обычный текст, а не раздел.
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
+
+
 def split_sections(markdown: str) -> list[tuple[str, str]]:
     """Режем по заголовкам #/##/### → [(название раздела, текст), ...]."""
     sections: list[tuple[str, str]] = []
     title, buf = "", []
     for line in markdown.splitlines():
-        if line.startswith("#"):
+        m = _HEADING_RE.match(line)
+        if m:
             if "\n".join(buf).strip():
                 sections.append((title, "\n".join(buf).strip()))
-            title, buf = line.lstrip("#").strip(), []
+            title, buf = m.group(2).strip(), []
         else:
             buf.append(line)
     if "\n".join(buf).strip():
@@ -67,18 +73,26 @@ def _is_rules_heading(title: str) -> bool:
 
 def split_rules(markdown: str) -> tuple[str, str]:
     """Вырезает раздел(ы) «Правила ассистента» → (rules_text, content_markdown).
-    Раздел = секция (границы — как у split_sections: любая строка «#…»), чей
-    заголовок после нормализации равен «правила ассистента»; таких секций может
-    быть несколько — склеиваются. Правила уходят в системный промпт ответчика,
+    Раздел = секция (границы — как у split_sections: любой заголовок), чей
+    заголовок _is_rules_heading признаёт правилами; таких секций может быть
+    несколько — склеиваются. Правила уходят в системный промпт ответчика,
     content — в индексацию. Content собирается из исходных строк markdown
     (split_sections теряет уровень «##»), поэтому остальные разделы сохраняют
-    заголовки и порядок байт-в-байт."""
+    заголовки и порядок байт-в-байт.
+
+    Подзаголовок ЗАКРЫВАЕТ правила, даже если он мельче заголовка правил:
+    notion_reader не сохраняет вложенность, и автоматический блок цен
+    («Стоимость участия … (обновляется автоматически)» с «### … · EUR» и
+    таблицами), который у Греции стоит сразу после «## 28. Контрольные
+    правила…», иначе целиком уехал бы в правила и выпал из поиска. Поэтому
+    внутри раздела правил подзаголовков быть не должно."""
     rules_blocks: list[list[str]] = []
     content_lines: list[str] = []
     in_rules = False
     for line in markdown.splitlines():
-        if line.startswith("#"):
-            in_rules = _is_rules_heading(line.lstrip("#").strip())
+        m = _HEADING_RE.match(line)
+        if m:
+            in_rules = _is_rules_heading(m.group(2).strip())
             if in_rules:
                 rules_blocks.append([])
                 continue
