@@ -130,9 +130,20 @@ def _pick_survey(hits: list[dict]) -> tuple[list[dict], list[str]]:
     return picked, sorted({h["country"] for h in picked})
 
 
-_TERM_RE = re.compile(r"[A-Za-z][A-Za-z0-9-]{1,7}")
+# Латинское слово ЦЕЛИКОМ: раньше длина токена была зажата в регулярке, и
+# findall резал длинные слова на куски («Citizenship» → «Citizens» + «hip»),
+# а обрезки потом искались подстрокой по всей базе.
+_TERM_RE = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
+# Служебные английские слова в русском вопросе («Мальта vs Кипр», «Residency
+# by Investment») — не термины: по ним спасатель находил бы полбазы.
+_STOPWORDS = {"by", "of", "in", "on", "at", "to", "for", "the", "and", "or",
+              "is", "are", "be", "an", "as", "vs", "via", "per", "with", "from",
+              "not", "it", "its", "my", "we", "you", "do", "what", "how"}
+# Сколько строк брать из БД на термин до фильтра по целому слову: ilike ищет
+# подстроку («EU» внутри «EUR»), лишнее отсеивает _rank_rescue.
+_RESCUE_FETCH = 40
 
 
 def extract_rare_terms(question: str) -> list[str]:
@@ -140,18 +151,24 @@ def extract_rare_terms(question: str) -> list[str]:
     (а) аббревиатура полностью капсом длиной 2-6 (FIU, NHR, MPRP, CIIP)
         или буква+цифры (D7, E2) — в вопросе на любом языке;
     (б) в преимущественно кириллическом вопросе (кириллических букв больше,
-        чем латинских) — любой латинский токен длиной 2-7: ловит «fiu»
-        строчными в русском вопросе. Для англоязычного вопроса эта ветка
-        не срабатывает — иначе спасатель тащил бы каждое слово.
+        чем латинских) — латинское слово длиной 2-7 не из _STOPWORDS: ловит
+        «fiu» строчными в русском вопросе. Длинные слова (Citizenship,
+        Investment) — обычная лексика программ, а не редкие термины. Для
+        англоязычного вопроса ветка (б) не срабатывает — иначе спасатель
+        тащил бы каждое слово.
     До 3 уникальных, в порядке появления."""
     mostly_cyrillic = (len(_CYRILLIC_RE.findall(question))
                        > len(_LATIN_RE.findall(question)))
     terms: list[str] = []
     seen: set[str] = set()
     for token in _TERM_RE.findall(question):
+        token = token.strip("-")  # «NHR-статус» → NHR
+        if token.lower() in _STOPWORDS:  # и «vs», и «VS»
+            continue
         is_abbrev = ((token.isalpha() and token.isupper() and 2 <= len(token) <= 6)
                      or re.fullmatch(r"[A-Za-z]\d+", token) is not None)
-        if not (is_abbrev or (mostly_cyrillic and 2 <= len(token) <= 7)):
+        is_latin_word = mostly_cyrillic and 2 <= len(token) <= 7
+        if not (is_abbrev or is_latin_word):
             continue
         if token.lower() in seen:
             continue
@@ -162,25 +179,33 @@ def extract_rare_terms(question: str) -> list[str]:
     return terms
 
 
+def _rank_rescue(rows: list[dict], terms: list[str]) -> list[dict]:
+    """Оставляет строки, где термин стоит ЦЕЛЫМ словом (без учёта регистра),
+    сортирует по числу таких вхождений по убыванию, режет до потолка."""
+    patterns = [re.compile(rf"(?<!\w){re.escape(t)}(?!\w)", re.I) for t in terms]
+    scored = []
+    for row in rows:
+        hits = sum(len(p.findall(row["content"])) for p in patterns)
+        if hits:
+            scored.append((hits, row))
+    scored.sort(key=lambda s: s[0], reverse=True)
+    return [row for _, row in scored][:config.RESCUE_MAX_FRAGMENTS]
+
+
 def _lexical_rescue(question: str, matched: list[str]) -> list[dict]:
     """Спасение пустой выдачи точным вхождением редких терминов: объединение
-    находок без дублей по id, сортировка по числу вхождений терминов (без
-    учёта регистра) по убыванию, обрезка до потолка."""
+    находок без дублей по id, затем _rank_rescue. Если страны распознаны,
+    ищем только в них — иначе вопрос «Мальта vs Кипр» спасался бы чанками
+    третьих стран (а с ними в промпт приезжали бы и их правила)."""
     terms = extract_rare_terms(question)
     if not terms:
         return []
-    country = matched[0] if len(matched) == 1 else None
     found: dict[int, dict] = {}
     for term in terms:
-        for row in db.find_by_term(term, country):
-            found.setdefault(row["id"], row)
-
-    def occurrences(row: dict) -> int:
-        content = row["content"].lower()
-        return sum(content.count(t.lower()) for t in terms)
-
-    rows = sorted(found.values(), key=occurrences, reverse=True)
-    return rows[:config.RESCUE_MAX_FRAGMENTS]
+        for country in matched or [None]:
+            for row in db.find_by_term(term, country, limit=_RESCUE_FETCH):
+                found.setdefault(row["id"], row)
+    return _rank_rescue(list(found.values()), terms)
 
 
 def build_hint(fragment: dict) -> str:

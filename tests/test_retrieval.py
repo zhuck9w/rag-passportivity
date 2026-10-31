@@ -244,6 +244,68 @@ def test_rare_terms_unique_ordered_capped_at_three():
         ["FIU", "NHR", "CIIP"]
 
 
+def test_rare_terms_long_words_not_cut_into_pieces():
+    # раньше: «Citizenship» → «hip», «Investment» → «nt», «GOLDENVISA» → «SA»
+    assert extract_rare_terms("расскажи подробно про программу Citizenship в Гренаде") == []
+    assert extract_rare_terms("какие условия у программы Residency by Investment на Мальте") == []
+    assert extract_rare_terms("что такое GOLDENVISA?") == []
+
+
+def test_rare_terms_skip_english_function_words():
+    assert extract_rare_terms("Мальта vs Кипр: что выгоднее?") == []
+    assert extract_rare_terms("Мальта VS Кипр: что выгоднее?") == []  # капсом — тоже
+    assert extract_rare_terms("что даёт статус NHR-резидента в Португалии") == ["NHR"]
+
+
+def test_rank_rescue_whole_words_only():
+    from retrieval import _rank_rescue
+    rows = [{"id": 1, "content": "цены в EUR и EURO"},          # EU только внутри слов
+            {"id": 2, "content": "страны EU: EU-гражданство"},  # два целых вхождения
+            {"id": 3, "content": "одно упоминание eu"}]
+    assert [r["id"] for r in _rank_rescue(rows, ["EU"])] == [2, 3]
+
+
+def test_rank_rescue_capped(monkeypatch):
+    import config
+    from retrieval import _rank_rescue
+    monkeypatch.setattr(config, "RESCUE_MAX_FRAGMENTS", 2)
+    rows = [{"id": i, "content": "FIU " * i} for i in range(1, 5)]
+    assert [r["id"] for r in _rank_rescue(rows, ["FIU"])] == [4, 3]
+
+
+def test_lexical_rescue_searches_only_matched_countries(monkeypatch):
+    import retrieval
+    calls = []
+
+    def fake_find(term, country=None, limit=8):
+        calls.append((term, country, limit))
+        return [{"id": hash((term, country)), "country": country, "content": f"{term} тут"}]
+
+    monkeypatch.setattr(retrieval.db, "find_by_term", fake_find)
+    rows = retrieval._lexical_rescue("FIU на Мальте и Кипре", ["Мальта", "Кипр"])
+    # не по всей базе; и с запасом строк под фильтр по целому слову
+    assert calls == [("FIU", "Мальта", retrieval._RESCUE_FETCH),
+                     ("FIU", "Кипр", retrieval._RESCUE_FETCH)]
+    assert {r["country"] for r in rows} == {"Мальта", "Кипр"}
+    calls.clear()
+    retrieval._lexical_rescue("fiu что такое?", [])
+    assert [c[:2] for c in calls] == [("fiu", None)]  # страны не названы — ищем везде
+
+
+def test_lexical_rescue_finds_whole_word_behind_substring_noise(monkeypatch):
+    # ilike отдаёт подстроки в произвольном порядке: целое «EU» может лежать
+    # за десятком «EUR» — лимит выборки должен это пережить
+    import retrieval
+
+    def fake_find(term, country=None, limit=8):
+        rows = ([{"id": i, "content": "цена 100 EUR"} for i in range(10)]
+                + [{"id": 99, "content": "гражданство EU"}])
+        return rows[:limit]
+
+    monkeypatch.setattr(retrieval.db, "find_by_term", fake_find)
+    assert [r["id"] for r in retrieval._lexical_rescue("что такое EU для Мальты", ["Мальта"])] == [99]
+
+
 # --- build_hint: подсказка «почти попал» ---
 
 def test_build_hint_with_section():
