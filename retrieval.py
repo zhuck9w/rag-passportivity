@@ -82,9 +82,13 @@ def rewrite_question(question: str, history: list[dict],
 
 
 def _with_anchors(fragments: list[dict], anchors: list[dict]) -> list[dict]:
-    """Подмешивает якорные чанки в начало выдачи, без дублей по id."""
+    """Подмешивает якорные чанки в начало выдачи, без дублей по id. Якоря
+    помечаются anchor=True: это гарантированный контекст, а не находка поиска,
+    поэтому правила программ по ним не подключаются, а в списке источников
+    они идут после находок. Якорь, который поиск нашёл и сам, остаётся
+    обычной находкой."""
     seen = {f["id"] for f in fragments}
-    fresh = [a for a in anchors if a["id"] not in seen]
+    fresh = [dict(a, anchor=True) for a in anchors if a["id"] not in seen]
     return fresh + fragments
 
 
@@ -184,11 +188,13 @@ def format_rule_blocks(fragments: list[dict], rows: list[dict],
                        limit: int = 5) -> str | None:
     """Собирает блоки «правил ассистента» для страниц, чьи фрагменты участвуют
     в ответе. Порядок — по числу фрагментов страницы (кто ведёт ответ, тот и
-    первый), потолок limit блоков. Страницы без правил пропускаются."""
+    первый), потолок limit блоков. Страницы без правил пропускаются. Якоря не
+    в счёт: они приходят с КАЖДОЙ страницы страны, и с ними правила всех
+    программ страны снова наслаивались бы друг на друга."""
     counts: dict[str, int] = {}
     for f in fragments:
         pid = f.get("page_id")
-        if pid:
+        if pid and not f.get("anchor"):
             counts[pid] = counts.get(pid, 0) + 1
     by_page = {r["page_id"]: r for r in rows if r.get("rules", "").strip()}
     ordered = sorted((p for p in by_page if p in counts),
@@ -202,7 +208,8 @@ def rules_text_for(fragments: list[dict]) -> str | None:
     """Правила ассистента для ответа: точная привязка к страницам фрагментов.
     Любой сбой (нет таблицы и т.п.) — просто отвечаем без правил."""
     try:
-        page_ids = list({f["page_id"] for f in fragments if f.get("page_id")})
+        page_ids = list({f["page_id"] for f in fragments
+                         if f.get("page_id") and not f.get("anchor")})
         if not page_ids:
             return None
         return format_rule_blocks(fragments, db.get_program_rules_by_pages(page_ids))

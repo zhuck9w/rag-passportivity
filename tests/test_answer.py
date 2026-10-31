@@ -76,6 +76,17 @@ def test_sources_footer_caps_at_three_with_more_note():
     assert "<https://n/0|" in footer  # порядок релевантности фрагментов, не алфавит
 
 
+def test_sources_footer_search_hits_before_anchors():
+    # якоря стоят в начале выдачи, но страница, давшая ответ, должна
+    # попасть в три слота источников первой
+    anchors = [dict(_frag("Italy"), program=f"A{i}", notion_url=f"https://n/a{i}",
+                    anchor=True) for i in range(3)]
+    hit = dict(_frag("Italy"), program="Investor", notion_url="https://n/hit")
+    footer = _sources_footer(anchors + [hit])
+    assert footer.index("<https://n/hit|") < footer.index("<https://n/a0|")
+    assert footer.count("<https://") == 3 and "и ещё 1" in footer
+
+
 def test_sources_footer_short_list_no_note():
     frags = [{"country": "A", "program": "P", "notion_url": "https://n/1"},
              {"country": "A", "program": "P", "notion_url": "https://n/1"},

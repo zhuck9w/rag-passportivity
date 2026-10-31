@@ -140,9 +140,14 @@ def _to_mrkdwn(text: str) -> str:
 def _sources_footer(fragments: list[dict], limit: int = 3) -> str:
     """Не больше limit ссылок, в порядке релевантности фрагментов (а не по
     алфавиту): в обзорных ответах источников бывают десятки, простыня из 26
-    ссылок бесполезна и вводит в заблуждение. Остальное — строкой «и ещё N»."""
+    ссылок бесполезна и вводит в заблуждение. Остальное — строкой «и ещё N».
+    Страницы из находок поиска идут раньше якорей (anchor=True): якоря стоят
+    в начале промпта, но это вводные куски всех программ страны, и без этой
+    перестановки они вытесняли из трёх слотов страницу, давшую ответ."""
+    ordered = ([f for f in fragments if not f.get("anchor")]
+               + [f for f in fragments if f.get("anchor")])
     seen: list[tuple[str, str, str]] = []
-    for f in fragments:
+    for f in ordered:
         if not f.get("notion_url"):
             continue
         key = (f["country"].strip(), f["program"].strip(), f["notion_url"])

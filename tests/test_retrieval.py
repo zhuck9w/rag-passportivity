@@ -7,6 +7,9 @@ def test_with_anchors_dedup_and_prepend():
     anchors = [{"id": 2, "content": "дубль"}, {"id": 3, "content": "интро"}]
     merged = _with_anchors(frags, anchors)
     assert [f["id"] for f in merged] == [3, 1, 2]  # якорь впереди, без дублей
+    # помечен только подмешанный якорь; найденное поиском остаётся находкой
+    assert [bool(f.get("anchor")) for f in merged] == [True, False, False]
+    assert "anchor" not in anchors[1]  # исходные строки БД не мутируем
 
 COUNTRIES = ["Мальта", "Португалия"]
 
@@ -136,6 +139,25 @@ def test_rule_blocks_ordered_by_fragment_share_and_capped():
     out = format_rule_blocks(frags, rows)
     assert out.index("P2") < out.index("P1")  # кто ведёт ответ — тот первый
     assert format_rule_blocks(frags, rows, limit=1).count("[") == 1
+
+
+def test_rule_blocks_ignore_anchor_only_pages():
+    # точечный вопрос про одну программу Италии: якоря тянут вводные куски
+    # всех её страниц, но правила — только той, что нашёл поиск
+    from retrieval import format_rule_blocks
+    frags = ([dict(_frag(p), anchor=True) for p in ("p1", "p2", "p3")]
+             + [_frag("p1"), _frag("p1")])
+    rows = [{"page_id": p, "country": "Italy", "program": f"P{p}", "rules": f"правило {p}"}
+            for p in ("p1", "p2", "p3")]
+    out = format_rule_blocks(frags, rows)
+    assert "правило p1" in out
+    assert "правило p2" not in out and "правило p3" not in out
+
+
+def test_rule_blocks_only_anchors_gives_none():
+    from retrieval import format_rule_blocks
+    rows = [{"page_id": "p1", "country": "C", "program": "P", "rules": "р"}]
+    assert format_rule_blocks([dict(_frag("p1"), anchor=True)], rows) is None
 
 
 def test_rule_blocks_empty_cases():
