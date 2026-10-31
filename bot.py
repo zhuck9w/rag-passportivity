@@ -175,7 +175,7 @@ def handle_question(event, say) -> None:
             say(text=smart_refusal(question, history, hint), thread_ts=thread_ts)
             return
         rules = None
-        if countries and len(countries) <= 3:
+        if countries and len(countries) <= 3 and not survey:
             # «Правила ассистента» — только страниц, чьи фрагменты реально
             # участвуют в ответе: у страны бывает несколько листов, и правила
             # разных программ не должны наслаиваться. Обзорный режим правил

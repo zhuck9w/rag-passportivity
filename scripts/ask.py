@@ -43,7 +43,7 @@ if args.answer:
         import db
         from answer import answer
         rules = None
-        if countries and len(countries) <= 3:
+        if countries and len(countries) <= 3 and not survey:
             # как в bot.py: правила только страниц, чьи фрагменты в ответе
             from retrieval import rules_text_for
             rules = rules_text_for(fragments)
