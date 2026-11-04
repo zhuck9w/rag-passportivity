@@ -3,39 +3,30 @@
 Цель: бот работает на сервере 24/7, знания обновляются сами (каждый час + полная
 переиндексация в ночь на воскресенье), при сбое процесс перезапускается.
 
-Все команды выполняются на VPS по SSH (кроме шага 3 — он в браузере).
-Рассчитано на Ubuntu 22.04+/Debian 12. Подставить нужно только две вещи:
-логин-пароль прокси в шаге 1 и содержимое `.env` в шаге 7.
+**Наш сервер (с ноября 2026):** `185.185.50.174`, Нидерланды, Ubuntu 26.04.
+Вход: `ssh -p 1022 dev@185.185.50.174`, затем `sudo -i`. Все команды ниже — под
+root (строка ввода кончается на `#`), кроме шага 3, он в браузере.
+
+- На этом же сервере работает кабинет Telegram Outreach (пользователь `outreach`,
+  Docker, nginx) — его инструкция в `B2B Outreach\Telegram Outreach\DEPLOY.md`.
+  Шаги ниже его не трогают. RAG-бот живёт отдельно: пользователь `kbbot`, папка
+  `/opt/kb-assistant`, служба `kb-bot`.
+- **Прокси боту здесь не нужен:** из Нидерландов Anthropic, Voyage, Notion, Slack и
+  Supabase открываются напрямую (проверено 04.11.2026), в `.env` — `PROXY_ENABLED=false`.
+- **База знаний — в Supabase, не на сервере.** Переустановка бота в ней ничего не
+  теряет и не требует переиндексации.
+- Прежний сервер (`otklix.ru`, Beget) стёрт при взломе хостинга 02.11.2026.
 
 ---
 
-## Шаг 0. Проверка сервера
+## Шаг 1. Системные пакеты
 
 ```bash
-cat /etc/os-release | head -2      # какая ОС
-python3 --version                  # нужен Python 3.10 или новее
+apt-get update && NEEDRESTART_SUSPEND=1 apt-get -o DPkg::Lock::Timeout=600 install -y --no-install-recommends git python3-venv logrotate cron curl && python3 --version && systemctl is-enabled cron
 ```
 
-Если Python старее 3.10 — остановись и сообщи, подберём вариант.
-
-Ставим системные пакеты (git, venv, ротация логов):
-
-```bash
-sudo apt update && sudo apt install -y git python3-venv logrotate curl
-```
-
-## Шаг 1. Проверка прокси с VPS — критично для российского сервера
-
-Anthropic и Voyage напрямую с российских адресов не работают — весь трафик бота
-пойдёт через прокси. Проверяем, что прокси доступен именно С СЕРВЕРА:
-
-```bash
-curl -x http://ЛОГИН:ПАРОЛЬ@146.103.117.236:59977 -s -o /dev/null -w "%{http_code}\n" https://api.anthropic.com
-```
-
-Ожидание: любой трёхзначный код (403, 404 — неважно) — значит, прокси отвечает
-и туннель работает. Если ошибка соединения или `000` — прокси с VPS недоступен:
-дальше не идти, разбираемся с прокси.
+В конце — `Python 3.14…` и `enabled`. `NEEDRESTART_SUSPEND=1` обязателен: без него
+Ubuntu после установки может сама перезапустить Docker и nginx кабинета.
 
 ## Шаг 2. Отдельный пользователь для бота
 
@@ -43,26 +34,23 @@ curl -x http://ЛОГИН:ПАРОЛЬ@146.103.117.236:59977 -s -o /dev/null -w 
 иначе `git clone` упёрся бы в непустую папку:
 
 ```bash
-sudo useradd -r -m -d /var/lib/kbbot -s /usr/sbin/nologin kbbot
+useradd -r -m -d /var/lib/kbbot -s /usr/sbin/nologin kbbot
 ```
-
-(Если ругнётся на `/usr/sbin/nologin` — замени на `/sbin/nologin`.)
 
 ## Шаг 3. Деплой-ключ: серверу — только чтение кода
 
-Генерируем ключ и регистрируем его в GitHub как ключ «только на чтение»:
-
 ```bash
 sudo -u kbbot mkdir -m 700 /var/lib/kbbot/.ssh
-sudo -u kbbot ssh-keygen -t ed25519 -N "" -f /var/lib/kbbot/.ssh/id_ed25519
-sudo cat /var/lib/kbbot/.ssh/id_ed25519.pub
+sudo -u kbbot ssh-keygen -t ed25519 -N "" -C kb-bot-nl -f /var/lib/kbbot/.ssh/id_ed25519
+cat /var/lib/kbbot/.ssh/id_ed25519.pub
 ```
 
-Скопируй строку `ssh-ed25519 AAAA...` из вывода, открой в браузере
+Скопируй строку `ssh-ed25519 AAAA… kb-bot-nl`, открой
 **github.com/zhuck9w/rag-passportivity → Settings → Deploy keys → Add deploy key**,
-вставь ключ, название любое (например `vps`), галку **Allow write access НЕ ставить**.
+название `vps-nl`, вставь ключ, галку **Allow write access НЕ ставить** →
+**Add key**. Это открытая половина ключа, она не секрет.
 
-Вернись на сервер и добавь GitHub в доверенные хосты:
+Затем на сервере добавь GitHub в доверенные хосты:
 
 ```bash
 sudo -u kbbot sh -c 'ssh-keyscan github.com >> /var/lib/kbbot/.ssh/known_hosts'
@@ -71,81 +59,83 @@ sudo -u kbbot sh -c 'ssh-keyscan github.com >> /var/lib/kbbot/.ssh/known_hosts'
 ## Шаг 4. Код на сервер
 
 ```bash
-sudo install -d -o kbbot -g kbbot /opt/kb-assistant
+install -d -o kbbot -g kbbot /opt/kb-assistant
 sudo -u kbbot git clone git@github.com:zhuck9w/rag-passportivity.git /opt/kb-assistant
-cd /opt/kb-assistant
 ```
 
-Ожидание: обычный вывод clone без запроса пароля. Если спрашивает пароль —
-деплой-ключ не подхватился, проверь шаг 3.
+Ожидание: обычный вывод clone без запроса пароля. Если спрашивает пароль или пишет
+`Permission denied (publickey)` — ключ из шага 3 не добавлен в GitHub.
 
 ## Шаг 5. Окружение Python
 
+`constraints.txt` — точные версии библиотек, на которых проходят тесты: без него pip
+взял бы самые свежие, и новая версия могла бы молча сломать бота.
+
 ```bash
 sudo -u kbbot python3 -m venv /opt/kb-assistant/.venv
-sudo -u kbbot /opt/kb-assistant/.venv/bin/pip install -r /opt/kb-assistant/requirements.txt
+sudo -u kbbot /opt/kb-assistant/.venv/bin/pip install -r /opt/kb-assistant/requirements.txt -c /opt/kb-assistant/constraints.txt
+cd /opt/kb-assistant && sudo -u kbbot ./.venv/bin/python -m pytest -q -p no:cacheprovider
 ```
 
-Займёт минуту-две, в конце — `Successfully installed ...`.
+Займёт пару минут. В конце — `Successfully installed …` и `100 passed`.
 
 ## Шаг 6. Секреты
 
-```bash
-sudo -u kbbot nano /opt/kb-assistant/.env
-```
-
-Вставь содержимое своего локального `.env` (с ПК) и проверь две строки:
-
-```ini
-PROXY=http://ЛОГИН:ПАРОЛЬ@146.103.117.236:59977
-PROXY_ENABLED=true        # ← на сервере ОБЯЗАТЕЛЬНО true
-```
-
-Сохрани (Ctrl+O, Enter, Ctrl+X) и закрой доступ всем, кроме kbbot:
+Создай пустой файл, закрытый от всех, кроме `kbbot`, и открой его:
 
 ```bash
-sudo chmod 600 /opt/kb-assistant/.env
-sudo chown kbbot:kbbot /opt/kb-assistant/.env
+install -m 600 -o kbbot -g kbbot /dev/null /opt/kb-assistant/.env
+nano /opt/kb-assistant/.env
 ```
 
-## Шаг 7. Проверка конвейера ДО установки служб
-
-Сначала синхронизация (Notion + Voyage + Supabase через прокси):
+На ПК в VS Code открой `.env` в папке `RAG Slack-Notion` → Ctrl+A, Ctrl+C → в
+терминале сервера правый клик (если спросит про несколько строк — «Вставить всё
+равно»). Сохрани: Ctrl+O, Enter, Ctrl+X. Проверь — команда покажет только названия
+строк, без значений:
 
 ```bash
-cd /opt/kb-assistant
-sudo -u kbbot ./.venv/bin/python sync.py
+grep -oE '^[A-Z0-9_]+=' /opt/kb-assistant/.env | tr '\n' ' '; echo; grep '^PROXY_ENABLED=' /opt/kb-assistant/.env; ls -l /opt/kb-assistant/.env
 ```
 
-Ожидание: `Карточек в Notion: 42; обновить: 0; удалить: 0` (или пара «ok …»,
-если коллеги что-то правили). Затем полный вопрос-ответ (плюс Claude):
+Среди названий должны быть `NOTION_TOKEN= NOTION_KB_PAGE_ID= VOYAGE_API_KEY=
+ANTHROPIC_API_KEY= SUPABASE_URL= SUPABASE_SECRET=` (или `SUPABASE_SECRET_KEY=`)
+`SLACKBOT_OAUTH= SLACKBOT_APPLEVEL=`. Вторая строка — `PROXY_ENABLED=false`; если там
+`true`, открой файл ещё раз и поменяй на `false`. Третья начинается с `-rw-------`
+и содержит `kbbot kbbot`.
+
+## Шаг 7. Проверка конвейера ДО установки службы
+
+Сначала синхронизация (Notion → Voyage → Supabase):
 
 ```bash
-sudo -u kbbot ./.venv/bin/python scripts/ask.py "какой порог инвестиций на Мальте?" --answer
+cd /opt/kb-assistant && sudo -u kbbot ./.venv/bin/python sync.py
 ```
 
-Ожидание: фрагменты с похожестью ~0.6 и связный ответ с цифрами.
-Если оба теста прошли — сервер полностью рабочий.
+Ожидание: `Карточек в Notion: …; обновить: …; удалить: 0` и строки `ok …` по
+обновлённым страницам (синк не шёл со 2 ноября — несколько страниц могут обновиться).
+Затем полный вопрос-ответ (плюс Claude):
+
+```bash
+cd /opt/kb-assistant && sudo -u kbbot ./.venv/bin/python scripts/ask.py "какой порог инвестиций на Мальте?" --answer
+```
+
+Ожидание: фрагменты с похожестью ~0.6 и связный ответ с цифрами. Если оба теста
+прошли — сервер полностью рабочий.
 
 ## Шаг 8. Бот как служба (24/7, автозапуск, авторестарт)
 
-```bash
-sudo cp deploy/kb-bot.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now kb-bot
-sudo systemctl status kb-bot --no-pager
-```
-
-Ожидание: `active (running)`. Логи бота:
+**Сначала убедись, что бот не запущен на ПК** (окно с `bot.py`): работать должен один
+экземпляр, иначе на каждый вопрос в Slack придут два ответа.
 
 ```bash
-sudo journalctl -u kb-bot -n 20 --no-pager
+cp /opt/kb-assistant/deploy/kb-bot.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now kb-bot
+sleep 5; systemctl status kb-bot --no-pager | head -n 5; journalctl -u kb-bot -n 20 --no-pager
 ```
 
-Ожидание: `Bolt app is running!` без traceback.
-
-**Выключи бота на своём ПК**, если он запущен — работать должен один экземпляр.
-Проверь в Slack: вопрос боту → ответ теперь приходит с сервера.
+Ожидание: `active (running)` и в логах `Bolt app is running!` без traceback.
+Проверь в Slack: вопрос боту → ответ.
 
 ## Шаг 9. Расписание синхронизации и ротация логов
 
@@ -157,7 +147,7 @@ sudo -u kbbot crontab -l    # проверка: две строки с sync.py
 Ротация лога синка (чтобы не рос бесконечно):
 
 ```bash
-sudo tee /etc/logrotate.d/kb-sync >/dev/null <<'EOF'
+tee /etc/logrotate.d/kb-sync >/dev/null <<'EOF'
 /opt/kb-assistant/sync.log {
   monthly
   rotate 3
@@ -177,17 +167,19 @@ EOF
 
 ## Шпаргалка на каждый день
 
-| Что | Команда (на VPS) |
+| Что | Команда (на VPS, под root) |
 |---|---|
-| Статус бота | `sudo systemctl status kb-bot` |
-| Логи бота (живые) | `sudo journalctl -u kb-bot -f` |
-| Перезапустить бота | `sudo systemctl restart kb-bot` |
+| Статус бота | `systemctl status kb-bot` |
+| Логи бота (живые) | `journalctl -u kb-bot -f` |
+| Перезапустить бота | `systemctl restart kb-bot` |
 | Лог синхронизаций | `tail -50 /opt/kb-assistant/sync.log` |
 | Синк прямо сейчас | `cd /opt/kb-assistant && sudo -u kbbot ./.venv/bin/python sync.py` |
-| **Обновить код** (после наших правок) | `cd /opt/kb-assistant && sudo -u kbbot git pull && sudo systemctl restart kb-bot` |
+| **Обновить код** (после наших правок) | `cd /opt/kb-assistant && sudo -u kbbot git pull && sudo -u kbbot ./.venv/bin/pip install -q -r requirements.txt -c constraints.txt && systemctl restart kb-bot` |
 
 Типовые проблемы:
-- Бот молчит → `journalctl -u kb-bot -n 50`: если ошибки соединения — проверь
-  прокси (шаг 1); если `invalid_auth` — проверь токены в `.env`.
-- `git pull` просит пароль → слетел деплой-ключ, повтори шаг 3.
-- После правки `.env` — обязательно `sudo systemctl restart kb-bot`.
+- Бот молчит → `journalctl -u kb-bot -n 50`: если `invalid_auth` — проверь токены в
+  `.env`; если ошибки соединения — см. OPS.md, «Бот молчит».
+- `git pull` пишет `Permission denied (publickey)` → слетел деплой-ключ, повтори шаг 3.
+- После правки `.env` — обязательно `systemctl restart kb-bot`.
+- Если когда-нибудь понадобится прокси (сервер переедет в Россию и т.п.): в `.env`
+  `PROXY=http://логин:пароль@адрес:порт` и `PROXY_ENABLED=true`, затем `restart`.
