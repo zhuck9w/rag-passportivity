@@ -161,7 +161,7 @@ $env:PYTHONUTF8='1'
 | Константа | Что делает | Сейчас |
 |---|---|---|
 | `LLM_PROVIDER` (`.env`) | чья модель отвечает | `deepseek` (с 2026-11-06: Anthropic закрыл организации ответы, HTTP 403). Нужен `DEEPSEEK_API_KEY` в `.env`. **Откат на Claude без деплоя:** `LLM_PROVIDER=anthropic` в `.env` + `sudo systemctl restart kb-bot` |
-| `ANSWER_MODEL` | модель ответов (качество/цена), можно задать в `.env` | DeepSeek: `deepseek-v4-flash`; Claude: Haiku 4.5 |
+| `ANSWER_MODEL` | модель ответов (качество/цена), можно задать в `.env` | DeepSeek: `deepseek-flash`; Claude: Haiku 4.5 |
 | `REWRITE_MODEL` | модель переформулировщика, можно задать в `.env` | DeepSeek: `deepseek-v4-pro`; Claude: Sonnet 5. Имя `claude-...` при DeepSeek игнорируется |
 | `TOP_K` | сколько фрагментов даём модели | 8 |
 | `MIN_SIMILARITY` | порог отсечения нерелевантного | 0.55 |

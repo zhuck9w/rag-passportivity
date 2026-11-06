@@ -31,7 +31,7 @@ def test_default_provider_is_deepseek(reload_config):
     c = reload_config()
     assert c.LLM_PROVIDER == "deepseek"
     assert c.LLM_KEY_NAME == "DEEPSEEK_API_KEY"
-    assert c.ANSWER_MODEL == "deepseek-v4-flash"
+    assert c.ANSWER_MODEL == "deepseek-flash"
     assert c.REWRITE_MODEL == "deepseek-v4-pro"
     assert c.DEEPSEEK_BASE_URL == "https://api.deepseek.com/anthropic"
 
@@ -69,3 +69,47 @@ def test_client_without_key_stops(reload_config, monkeypatch):
     monkeypatch.setattr(c, "DEEPSEEK_API_KEY", "")
     with pytest.raises(SystemExit, match="DEEPSEEK_API_KEY"):
         llm.client()
+
+
+def test_client_has_short_timeouts(reload_config, monkeypatch):
+    c = reload_config()
+    monkeypatch.setattr(c, "DEEPSEEK_API_KEY", "test-key")
+    client = llm.client()
+    assert client.max_retries == 1
+    assert client.timeout.read == c.LLM_READ_TIMEOUT
+    assert client.timeout.connect == 10
+
+
+def test_create_hard_timeout(monkeypatch):
+    """Зависший вызов не держит обработчик Slack дольше LLM_HARD_TIMEOUT."""
+    import threading
+    release = threading.Event()
+
+    class Hung:
+        class messages:
+            @staticmethod
+            def create(**kwargs):
+                release.wait(5)
+
+    monkeypatch.setattr(llm, "_client", Hung)
+    monkeypatch.setattr(config, "LLM_HARD_TIMEOUT", 0.2)
+    try:
+        with pytest.raises(TimeoutError, match="не ответила"):
+            llm.create(model="m", max_tokens=1, messages=[])
+    finally:
+        release.set()
+
+
+def test_create_passes_arguments(monkeypatch):
+    seen = {}
+
+    class Fake:
+        class messages:
+            @staticmethod
+            def create(**kwargs):
+                seen.update(kwargs)
+                return "ok"
+
+    monkeypatch.setattr(llm, "_client", Fake)
+    assert llm.create(model="m", max_tokens=5, messages=[]) == "ok"
+    assert seen == {"model": "m", "max_tokens": 5, "messages": []}

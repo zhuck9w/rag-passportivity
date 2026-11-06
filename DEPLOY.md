@@ -11,7 +11,7 @@ root (строка ввода кончается на `#`), кроме шага 
   Docker, nginx) — его инструкция в `B2B Outreach\Telegram Outreach\DEPLOY.md`.
   Шаги ниже его не трогают. RAG-бот живёт отдельно: пользователь `kbbot`, папка
   `/opt/kb-assistant`, служба `kb-bot`.
-- **Прокси боту здесь не нужен:** из Нидерландов Anthropic, Voyage, Notion, Slack и
+- **Прокси боту здесь не нужен:** из Нидерландов DeepSeek, Anthropic, Voyage, Notion, Slack и
   Supabase открываются напрямую (проверено 04.11.2026), в `.env` — `PROXY_ENABLED=false`.
 - **База знаний — в Supabase, не на сервере.** Переустановка бота в ней ничего не
   теряет и не требует переиндексации.

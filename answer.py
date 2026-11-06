@@ -171,7 +171,7 @@ def smart_refusal(question: str, history: list[dict], hint: str | None = None) -
                 "role": "user",
                 "text": f"Вопрос сотрудника (в базе знаний по нему ничего не нашлось): {question}",
             }])
-            resp = llm.client().messages.create(
+            resp = llm.create(
                 model=config.REWRITE_MODEL, max_tokens=400,
                 thinking={"type": "disabled"},  # см. retrieval.rewrite_question
                 system=_REFUSAL_SYSTEM, messages=msgs)
@@ -206,7 +206,7 @@ def answer(question: str, fragments: list[dict], history: list[dict],
         _history_for_model(history)
         + [{"role": "user",
             "text": build_user_message(fragments, question, resolved, survey)}])
-    resp = llm.client().messages.create(
+    resp = llm.create(
         model=config.ANSWER_MODEL,
         max_tokens=(config.SURVEY_ANSWER_MAX_TOKENS if survey
                     else config.ANSWER_MAX_TOKENS),

@@ -53,7 +53,7 @@ LLM_KEY_NAME = "DEEPSEEK_API_KEY" if LLM_PROVIDER == "deepseek" else "ANTHROPIC_
 # принимают, а Sonnet 5.5 / Opus 5.5 отвечают на него 400 — при смене
 # Claude-модели на них параметр надо убрать (retrieval.py, answer.py).
 _MODELS = {
-    "deepseek": ("deepseek-v4-flash", "deepseek-v4-pro"),
+    "deepseek": ("deepseek-flash", "deepseek-v4-pro"),
     "anthropic": ("claude-haiku-4-5-20251001", "claude-sonnet-5"),
 }
 
@@ -70,6 +70,11 @@ def _model_env(name: str, default: str) -> str:
 
 ANSWER_MODEL = _model_env("ANSWER_MODEL", _MODELS[LLM_PROVIDER][0])
 REWRITE_MODEL = _model_env("REWRITE_MODEL", _MODELS[LLM_PROVIDER][1])
+# Таймауты вызова модели (llm.py), секунды: read — пауза между байтами ответа
+# (ответ без стриминга приходит целиком, поэтому с запасом на обзорный ответ
+# в 3500 токенов), hard — потолок на весь вызов вместе с повтором.
+LLM_READ_TIMEOUT = 120
+LLM_HARD_TIMEOUT = 180
 
 # Текст вопросов в логе сервиса (journalctl). По умолчанию НЕ пишем: журнал
 # обращений в Supabase хранит только метаданные, и лог не должен тихо копить

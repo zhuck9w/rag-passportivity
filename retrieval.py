@@ -70,9 +70,13 @@ def rewrite_question(question: str, history: list[dict],
     # падал), и размышления съедают лимит в 300 токенов. Для короткой
     # классификации в JSON они не нужны — выключаем явно; текст собираем
     # по типу блока.
-    resp = llm.client().messages.create(
+    resp = llm.create(
         model=config.REWRITE_MODEL, max_tokens=300,
         thinking={"type": "disabled"},
+        # классификация, а не текст: без разброса. При температуре по
+        # умолчанию deepseek-v4-pro в половине уточнений («а сроки там?»)
+        # копировал из примеров страну по-русски, и поиск ничего не находил
+        temperature=0,
         messages=[{"role": "user", "content": prompt}])
     raw = "".join(b.text for b in resp.content if b.type == "text")
     return parse_rewrite(raw, question, countries)
