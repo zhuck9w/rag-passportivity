@@ -1,12 +1,10 @@
-"""Сборка промпта и вызов Claude. Ответ строго по фрагментам базы."""
+"""Сборка промпта и вызов модели (llm.py). Ответ строго по фрагментам базы."""
 import re
 from pathlib import Path
 
-import anthropic
-
 import config
+import llm
 
-_client = None
 _SYSTEM = (Path(__file__).parent / "prompts" / "system.txt").read_text(encoding="utf-8")
 _REFUSAL_SYSTEM = (Path(__file__).parent / "prompts" / "refusal.txt").read_text(encoding="utf-8")
 _ABOUT_PATH = Path(__file__).parent / "prompts" / "about.txt"
@@ -34,14 +32,6 @@ def pick_smalltalk_reply(question: str) -> str:
     return ("Привет! Я ассистент по базе знаний Passportivity о программах "
             "гражданства и ВНЖ. Спросите, например: «какой порог инвестиций "
             "на Мальте?» — или напишите «что ты умеешь».")
-
-
-def _anthropic() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        config.require("ANTHROPIC_API_KEY")
-        _client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    return _client
 
 
 def _text_of(resp) -> str:
@@ -181,7 +171,7 @@ def smart_refusal(question: str, history: list[dict], hint: str | None = None) -
                 "role": "user",
                 "text": f"Вопрос сотрудника (в базе знаний по нему ничего не нашлось): {question}",
             }])
-            resp = _anthropic().messages.create(
+            resp = llm.client().messages.create(
                 model=config.REWRITE_MODEL, max_tokens=400,
                 thinking={"type": "disabled"},  # см. retrieval.rewrite_question
                 system=_REFUSAL_SYSTEM, messages=msgs)
@@ -216,9 +206,10 @@ def answer(question: str, fragments: list[dict], history: list[dict],
         _history_for_model(history)
         + [{"role": "user",
             "text": build_user_message(fragments, question, resolved, survey)}])
-    resp = _anthropic().messages.create(
+    resp = llm.client().messages.create(
         model=config.ANSWER_MODEL,
         max_tokens=(config.SURVEY_ANSWER_MAX_TOKENS if survey
                     else config.ANSWER_MAX_TOKENS),
+        thinking={"type": "disabled"},  # см. config.py, «Модели по провайдерам»
         system=_system_with_rules(rules), messages=msgs)
     return _to_mrkdwn(_text_of(resp)) + _sources_footer(fragments)

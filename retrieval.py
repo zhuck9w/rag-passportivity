@@ -4,22 +4,12 @@ import json
 import re
 from pathlib import Path
 
-import anthropic
-
 import config
+import llm
 import db
 from embedder import embed_query
 
-_client = None
 _REWRITE_TEMPLATE = (Path(__file__).parent / "prompts" / "rewrite.txt").read_text(encoding="utf-8")
-
-
-def _anthropic() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        config.require("ANTHROPIC_API_KEY")
-        _client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    return _client
 
 
 def _fmt_history(history: list[dict]) -> str:
@@ -75,11 +65,12 @@ def rewrite_question(question: str, history: list[dict],
               .replace("[[TOPICS]]", ", ".join(config.TOPICS))
               .replace("[[HISTORY]]", _fmt_history(history))
               .replace("[[QUESTION]]", question))
-    # Sonnet 5 без параметра thinking сам решает «подумать» — тогда первым
-    # блоком ответа идёт thinking, а не text (content[0].text падал), и
-    # размышления съедают лимит в 300 токенов. Для короткой классификации
-    # в JSON они не нужны — выключаем явно; текст собираем по типу блока.
-    resp = _anthropic().messages.create(
+    # Sonnet 5 и DeepSeek v4 без параметра thinking сами решают «подумать» —
+    # тогда первым блоком ответа идёт thinking, а не text (content[0].text
+    # падал), и размышления съедают лимит в 300 токенов. Для короткой
+    # классификации в JSON они не нужны — выключаем явно; текст собираем
+    # по типу блока.
+    resp = llm.client().messages.create(
         model=config.REWRITE_MODEL, max_tokens=300,
         thinking={"type": "disabled"},
         messages=[{"role": "user", "content": prompt}])

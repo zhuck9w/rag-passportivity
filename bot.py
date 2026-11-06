@@ -23,7 +23,7 @@ if not config.LOG_QUESTIONS:
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
 config.require("SLACKBOT_OAUTH", "SLACKBOT_APPLEVEL",
-               "ANTHROPIC_API_KEY", "VOYAGE_API_KEY",
+               config.LLM_KEY_NAME, "VOYAGE_API_KEY",
                "SUPABASE_URL", "SUPABASE_SECRET_KEY")
 
 app = App(client=WebClient(token=config.SLACKBOT_OAUTH,

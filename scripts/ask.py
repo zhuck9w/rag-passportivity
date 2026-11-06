@@ -13,7 +13,7 @@ parser.add_argument("question")
 parser.add_argument("--answer", action="store_true", help="сгенерировать полный ответ")
 args = parser.parse_args()
 
-config.require("SUPABASE_URL", "SUPABASE_SECRET_KEY", "VOYAGE_API_KEY", "ANTHROPIC_API_KEY")
+config.require("SUPABASE_URL", "SUPABASE_SECRET_KEY", "VOYAGE_API_KEY", config.LLM_KEY_NAME)
 fragments, query, countries, topic, intent, hint, survey = retrieve(args.question, history=[])
 print(f"Переформулировано: {query!r}\nСтраны: {countries}\nТема: {topic}\n"
       f"Intent: {intent}\nОбзорный режим: {survey}")

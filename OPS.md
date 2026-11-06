@@ -93,10 +93,11 @@ sudo -u kbbot ./.venv/bin/python scripts/ask.py "тот же вопрос" --ans
    - `В .env не заполнены: ...` → в `.env` пропала переменная, вписать и `restart`.
 3. **Прокси жив?** Только если в `.env` `PROXY_ENABLED=true`. На нынешнем сервере в
    Нидерландах прокси выключен и бот ходит напрямую — тогда смотреть, открывается
-   ли сам сервис: `curl -s -o /dev/null -w "%{http_code}\n" https://api.anthropic.com`.
+   ли сам сервис: `curl -s -o /dev/null -w "%{http_code}\n" https://api.deepseek.com`
+   (при `LLM_PROVIDER=anthropic` — `https://api.anthropic.com`).
    С включённым прокси:
    ```bash
-   curl -x http://ЛОГИН:ПАРОЛЬ@146.103.117.236:59977 -s -o /dev/null -w "%{http_code}\n" https://api.anthropic.com
+   curl -x http://ЛОГИН:ПАРОЛЬ@146.103.117.236:59977 -s -o /dev/null -w "%{http_code}\n" https://api.deepseek.com
    ```
    Трёхзначный код = жив. Ошибка = прокси лежит: чинить прокси или временно
    поднять бота на своём ПК (см. ниже).
@@ -159,8 +160,9 @@ $env:PYTHONUTF8='1'
 
 | Константа | Что делает | Сейчас |
 |---|---|---|
-| `ANSWER_MODEL` | модель ответов (качество/цена) | Haiku 4.5; апгрейд → `claude-opus-4-8` |
-| `REWRITE_MODEL` | модель переформулировщика | Sonnet 5 (дефолт из config.py). **Откат на Haiku без деплоя:** в `.env` на сервере добавить `REWRITE_MODEL=claude-haiku-4-5-20251001` + `sudo systemctl restart kb-bot` |
+| `LLM_PROVIDER` (`.env`) | чья модель отвечает | `deepseek` (с 2026-11-06: Anthropic закрыл организации ответы, HTTP 403). Нужен `DEEPSEEK_API_KEY` в `.env`. **Откат на Claude без деплоя:** `LLM_PROVIDER=anthropic` в `.env` + `sudo systemctl restart kb-bot` |
+| `ANSWER_MODEL` | модель ответов (качество/цена), можно задать в `.env` | DeepSeek: `deepseek-v4-flash`; Claude: Haiku 4.5 |
+| `REWRITE_MODEL` | модель переформулировщика, можно задать в `.env` | DeepSeek: `deepseek-v4-pro`; Claude: Sonnet 5. Имя `claude-...` при DeepSeek игнорируется |
 | `TOP_K` | сколько фрагментов даём модели | 8 |
 | `MIN_SIMILARITY` | порог отсечения нерелевантного | 0.55 |
 | `ANSWER_MAX_TOKENS` | потолок длины точечного ответа | 1600 |

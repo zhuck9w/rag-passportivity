@@ -98,7 +98,7 @@ grep -oE '^[A-Z0-9_]+=' /opt/kb-assistant/.env | tr '\n' ' '; echo; grep '^PROXY
 ```
 
 Среди названий должны быть `NOTION_TOKEN= NOTION_KB_PAGE_ID= VOYAGE_API_KEY=
-ANTHROPIC_API_KEY= SUPABASE_URL= SUPABASE_SECRET=` (или `SUPABASE_SECRET_KEY=`)
+DEEPSEEK_API_KEY= SUPABASE_URL= SUPABASE_SECRET=` (или `SUPABASE_SECRET_KEY=`)
 `SLACKBOT_OAUTH= SLACKBOT_APPLEVEL=`. Вторая строка — `PROXY_ENABLED=false`; если там
 `true`, открой файл ещё раз и поменяй на `false`. Третья начинается с `-rw-------`
 и содержит `kbbot kbbot`.
@@ -113,7 +113,7 @@ cd /opt/kb-assistant && sudo -u kbbot ./.venv/bin/python sync.py
 
 Ожидание: `Карточек в Notion: …; обновить: …; удалить: 0` и строки `ok …` по
 обновлённым страницам (синк не шёл со 2 ноября — несколько страниц могут обновиться).
-Затем полный вопрос-ответ (плюс Claude):
+Затем полный вопрос-ответ (плюс языковая модель, по умолчанию DeepSeek):
 
 ```bash
 cd /opt/kb-assistant && sudo -u kbbot ./.venv/bin/python scripts/ask.py "какой порог инвестиций на Мальте?" --answer

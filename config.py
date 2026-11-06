@@ -30,16 +30,46 @@ if PROXY:
 
 EMBED_MODEL = "voyage-3.5"
 EMBED_DIM = 1024
-ANSWER_MODEL = "claude-haiku-4-5-20251001"  # обкатка; не хватит точности — "claude-opus-4-8"
-# Переформулировщик — «ствол мозга» конвейера (перевод вопроса на язык базы,
-# страны, intent, обзорность). С 2026-07-12 — Sonnet: дисциплина инструкций и
-# перевод разговорных формулировок заметно сильнее Haiku (~+$0.003-0.005 на
-# вопрос). ОТКАТ на Haiku без деплоя: строка REWRITE_MODEL=claude-haiku-4-5-20251001
-# в .env на сервере + systemctl restart kb-bot. Пусто в .env = дефолт ниже.
-# Вызовы этой модели идут с thinking={"type": "disabled"} — его принимают
-# Sonnet 5 и Haiku 4.5; Sonnet 5.5 / Opus 5.5 на нём отвечают 400, при смене
-# модели на них параметр надо убрать (retrieval.py, answer.py).
-REWRITE_MODEL = os.getenv("REWRITE_MODEL", "").strip() or "claude-sonnet-5"
+# Провайдер языковой модели. С 2026-11-06 по умолчанию DeepSeek: Anthropic
+# закрыл организации ответы (HTTP 403 «verification»). DeepSeek принимает
+# запросы в формате Anthropic (base_url .../anthropic), поэтому код вызовов
+# прежний (SDK anthropic), меняются адрес, ключ и имена моделей (llm.py).
+# ОТКАТ на Claude без деплоя: LLM_PROVIDER=anthropic в .env + рестарт.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").strip().lower() or "deepseek"
+if LLM_PROVIDER not in ("deepseek", "anthropic"):
+    raise SystemExit(f"LLM_PROVIDER={LLM_PROVIDER!r}: допустимо deepseek или anthropic")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_BASE_URL = (os.getenv("DEEPSEEK_BASE_URL", "").strip()
+                     or "https://api.deepseek.com/anthropic")
+# Имя ключа, без которого бот не стартует (bot.py, scripts/ask.py).
+LLM_KEY_NAME = "DEEPSEEK_API_KEY" if LLM_PROVIDER == "deepseek" else "ANTHROPIC_API_KEY"
+
+# Модели по провайдерам: (ответ, переформулировщик). Переформулировщик —
+# «ствол мозга» конвейера (перевод вопроса на язык базы, страны, intent,
+# обзорность), поэтому ему модель сильнее: у Claude это был Sonnet (с
+# 2026-07-12, дисциплина инструкций), у DeepSeek — v4-pro. Все вызовы идут
+# с thinking={"type": "disabled"}: модели DeepSeek v4 без него сначала
+# «размышляют» (медленнее и дороже); Sonnet 5 и Haiku 4.5 его тоже
+# принимают, а Sonnet 5.5 / Opus 5.5 отвечают на него 400 — при смене
+# Claude-модели на них параметр надо убрать (retrieval.py, answer.py).
+_MODELS = {
+    "deepseek": ("deepseek-v4-flash", "deepseek-v4-pro"),
+    "anthropic": ("claude-haiku-4-5-20251001", "claude-sonnet-5"),
+}
+
+
+def _model_env(name: str, default: str) -> str:
+    """Модель из .env или дефолт провайдера. Имя Claude при DeepSeek (старая
+    строка REWRITE_MODEL=claude-... в .env сервера) не берём: DeepSeek молча
+    подменил бы его своей flash-моделью."""
+    value = os.getenv(name, "").strip()
+    if not value or (LLM_PROVIDER == "deepseek" and value.startswith("claude")):
+        return default
+    return value
+
+
+ANSWER_MODEL = _model_env("ANSWER_MODEL", _MODELS[LLM_PROVIDER][0])
+REWRITE_MODEL = _model_env("REWRITE_MODEL", _MODELS[LLM_PROVIDER][1])
 
 # Текст вопросов в логе сервиса (journalctl). По умолчанию НЕ пишем: журнал
 # обращений в Supabase хранит только метаданные, и лог не должен тихо копить
